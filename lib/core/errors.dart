@@ -7,6 +7,17 @@ enum AppErrorCode {
   signInFailed,
   network,
   permissionDenied,
+  invalidInput,
+  profileRequired,
+  notAdmin,
+  orgReadOnly,
+  orgLimit,
+  alreadyMember,
+  invitePending,
+  inviteNotFound,
+  inviteExpired,
+  inviteUsed,
+  inviteEmailMismatch,
   unknown,
 }
 

@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import '../../app/flavor.dart';
 import '../../core/auth/google_tokens.dart';
 import '../providers.dart';
+import 'callable_client.dart';
 import 'firebase_auth_repository.dart';
+import 'firebase_org_repository.dart';
 import 'firebase_platform_check_repository.dart';
 import 'firebase_profile_repository.dart';
 
@@ -26,6 +28,9 @@ Future<List<Override>> initFirebase(AppConfig config) async {
     return const [];
   }
   final db = FirebaseFirestore.instance;
+  // Cloud Functions region (functions/src/lib/config.ts).
+  const region = 'europe-west1';
+  var functionsUrl = 'https://$region-${options.projectId}.cloudfunctions.net';
   if (config.useEmulators) {
     // Local emulator suite (docs/SETUP.md §7). The Android emulator reaches
     // the host computer at 10.0.2.2.
@@ -34,6 +39,7 @@ Future<List<Override>> initFirebase(AppConfig config) async {
         : '127.0.0.1';
     await FirebaseAuth.instance.useAuthEmulator(host, 9099);
     db.useFirestoreEmulator(host, 8080);
+    functionsUrl = 'http://$host:5001/${options.projectId}/$region';
   }
   // Offline cache: default on mobile/macOS; set explicitly so Windows uses it
   // too (verified by the platform check).
@@ -42,14 +48,20 @@ Future<List<Override>> initFirebase(AppConfig config) async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
   final google = GoogleTokenProvider.forPlatform(config);
+  final auth = FirebaseAuthRepository(FirebaseAuth.instance, google);
+  final functions = CallableClient(
+    baseUrl: functionsUrl,
+    idToken: auth.idToken,
+  );
   return [
     firebaseReadyProvider.overrideWithValue(true),
-    authRepositoryProvider.overrideWithValue(
-      FirebaseAuthRepository(FirebaseAuth.instance, google),
-    ),
+    authRepositoryProvider.overrideWithValue(auth),
     platformCheckRepositoryProvider.overrideWithValue(
       FirebasePlatformCheckRepository(db),
     ),
     profileRepositoryProvider.overrideWithValue(FirebaseProfileRepository(db)),
+    orgRepositoryProvider.overrideWithValue(
+      FirebaseOrgRepository(db, functions),
+    ),
   ];
 }

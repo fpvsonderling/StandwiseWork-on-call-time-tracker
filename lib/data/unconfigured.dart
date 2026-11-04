@@ -2,6 +2,7 @@ import '../core/auth/google_tokens.dart';
 import '../core/errors.dart';
 import '../domain/models.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/org_repository.dart';
 import 'repositories/platform_check_repository.dart';
 import 'repositories/profile_repository.dart';
 
@@ -23,6 +24,9 @@ class UnconfiguredAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<String?> idToken() async => null;
 }
 
 class UnconfiguredPlatformCheckRepository implements PlatformCheckRepository {
@@ -68,4 +72,55 @@ class UnconfiguredProfileRepository implements ProfileRepository {
     required String lastName,
     required bool exists,
   }) => Future.error(const AppException(AppErrorCode.firebaseNotConfigured));
+
+  @override
+  Future<void> setLastOrg({required String uid, required String orgId}) async {}
+}
+
+class UnconfiguredOrgRepository implements OrgRepository {
+  const UnconfiguredOrgRepository();
+
+  static Future<Never> _fail() =>
+      Future.error(const AppException(AppErrorCode.firebaseNotConfigured));
+
+  @override
+  Stream<List<Membership>> watchMyMemberships(String uid) => Stream.value([]);
+
+  @override
+  Stream<Organization?> watchOrg(String orgId) => Stream.value(null);
+
+  @override
+  Stream<List<Membership>> watchMembers(String orgId) => Stream.value([]);
+
+  @override
+  Stream<List<Invite>> watchPendingInvites(String orgId) => Stream.value([]);
+
+  @override
+  Future<String> createOrganization({
+    required String name,
+    required String currency,
+    required String timezone,
+  }) => _fail();
+
+  @override
+  Future<String> acceptInvite(String code) => _fail();
+
+  @override
+  Future<InviteCode> createInvite({
+    required String orgId,
+    required String email,
+    required OrgRole role,
+  }) => _fail();
+
+  @override
+  Future<InviteCode> resendInvite({
+    required String orgId,
+    required String inviteId,
+  }) => _fail();
+
+  @override
+  Future<void> revokeInvite({
+    required String orgId,
+    required String inviteId,
+  }) => _fail();
 }

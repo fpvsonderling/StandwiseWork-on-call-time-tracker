@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/flavor.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/org_repository.dart';
 import 'repositories/platform_check_repository.dart';
 import 'repositories/profile_repository.dart';
 import 'unconfigured.dart';
@@ -24,4 +25,8 @@ final platformCheckRepositoryProvider = Provider<PlatformCheckRepository>(
 
 final profileRepositoryProvider = Provider<ProfileRepository>(
   (ref) => const UnconfiguredProfileRepository(),
+);
+
+final orgRepositoryProvider = Provider<OrgRepository>(
+  (ref) => const UnconfiguredOrgRepository(),
 );

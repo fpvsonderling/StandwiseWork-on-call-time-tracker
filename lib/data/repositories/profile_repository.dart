@@ -16,4 +16,7 @@ abstract interface class ProfileRepository {
     required String lastName,
     required bool exists,
   });
+
+  /// Remembers the organization last used on any device (spec §4.4).
+  Future<void> setLastOrg({required String uid, required String orgId});
 }

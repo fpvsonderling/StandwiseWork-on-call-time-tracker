@@ -137,6 +137,16 @@ Tests:
 (cd functions && npm test && npm run test:emulator)          # Cloud Functions
 ```
 
+## 8. Invite emails (optional)
+
+Invites always show a code the admin can share by hand. To also send them by email, install the **Trigger Email** extension:
+
+1. Firebase console → **Extensions** → **Trigger Email from Firestore** (`firebase/firestore-send-email`) → Install in `standwise-dev`.
+2. **Email documents collection:** `mail`. **Firestore location:** the database's (`eur3`). **Cloud Functions location:** `europe-west1`.
+3. **SMTP connection URI** from an email provider, for example a Brevo or SendGrid SMTP key (`smtps://user@smtp-relay.brevo.com:465`) with the password stored as a secret. **Default FROM:** an address on a domain the provider has verified.
+
+Already queued invites are sent once the extension is running. Without it the documents just stay in `mail`.
+
 ---
 
-Later stages add: the invite email extension (stage 3), App Check, Crashlytics, the prod project, deploy and release workflows, signing and store publishing (stage 8).
+Later stages add: App Check, Crashlytics, the prod project, deploy and release workflows, signing and store publishing (stage 8).

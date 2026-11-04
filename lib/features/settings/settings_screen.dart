@@ -29,6 +29,23 @@ class SettingsScreen extends ConsumerWidget {
 
     return ListView(
       children: [
+        if (session case SessionReady(:final membership)) ...[
+          _Header(l10n.settingsOrganization),
+          if (membership.isAdmin)
+            ListTile(
+              leading: const Icon(Icons.group_add_outlined),
+              title: Text(l10n.settingsMembers),
+              subtitle: Text(l10n.settingsMembersSubtitle),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go(Routes.members),
+            ),
+          ListTile(
+            leading: const Icon(Icons.add_business_outlined),
+            title: Text(l10n.orgAddOrJoin),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go(Routes.addOrganization),
+          ),
+        ],
         if (session case SessionReady(:final profile)) ...[
           _Header(l10n.settingsAccount),
           ListTile(

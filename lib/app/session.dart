@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/providers.dart';
 import '../domain/models.dart';
 
-/// Where the signed-in user is in onboarding (spec §4). Drives the router's
-/// redirects; organization choice is added in stage 3.
+/// Where the signed-in user is in onboarding (spec §4): signed in → profile →
+/// organization. Drives the router's redirects.
 sealed class SessionStatus {
   const SessionStatus();
 }
@@ -32,11 +32,43 @@ final class SessionNeedsProfile extends SessionStatus {
   final UserProfile? profile;
 }
 
-final class SessionReady extends SessionStatus {
-  const SessionReady(this.user, this.profile);
+/// Profile done, but no organization yet: create one or join with a code.
+final class SessionNeedsOrganization extends SessionStatus {
+  const SessionNeedsOrganization(this.user, this.profile);
 
   final AuthUser user;
   final UserProfile profile;
+}
+
+final class SessionReady extends SessionStatus {
+  const SessionReady(
+    this.user,
+    this.profile, {
+    required this.memberships,
+    required this.membership,
+  });
+
+  final AuthUser user;
+  final UserProfile profile;
+
+  /// Every organization the user belongs to.
+  final List<Membership> memberships;
+
+  /// The organization in use: the last one used, else the first.
+  final Membership membership;
+
+  String get orgId => membership.orgId;
+}
+
+/// Picks the organization in use (spec §4.4: the last used one is
+/// remembered across devices in `users/{uid}.lastOrgId`).
+Membership? activeMembership(List<Membership> memberships, String? lastOrgId) {
+  if (memberships.isEmpty) return null;
+  for (final m in memberships) {
+    if (m.orgId == lastOrgId) return m;
+  }
+  final active = memberships.where((m) => m.isActive);
+  return active.isNotEmpty ? active.first : memberships.first;
 }
 
 final authStateProvider = StreamProvider<AuthUser?>(
@@ -47,6 +79,24 @@ final profileProvider = StreamProvider<UserProfile?>((ref) {
   final user = ref.watch(authStateProvider).value;
   if (user == null) return Stream.value(null);
   return ref.watch(profileRepositoryProvider).watchProfile(user.uid);
+});
+
+final myMembershipsProvider = StreamProvider<List<Membership>>((ref) {
+  final user = ref.watch(authStateProvider).value;
+  if (user == null) return Stream.value(const []);
+  return ref.watch(orgRepositoryProvider).watchMyMemberships(user.uid);
+});
+
+/// Any organization by ID (for names in the switcher).
+final orgProvider = StreamProvider.family<Organization?, String>(
+  (ref, orgId) => ref.watch(orgRepositoryProvider).watchOrg(orgId),
+);
+
+/// The organization in use, or `null` before one is chosen.
+final currentOrgProvider = Provider<AsyncValue<Organization?>>((ref) {
+  final session = ref.watch(sessionProvider);
+  if (session is! SessionReady) return const AsyncData(null);
+  return ref.watch(orgProvider(session.orgId));
 });
 
 final sessionProvider = Provider<SessionStatus>((ref) {
@@ -66,5 +116,24 @@ final sessionProvider = Provider<SessionStatus>((ref) {
   if (current == null || !current.isComplete) {
     return SessionNeedsProfile(user, current);
   }
-  return SessionReady(user, current);
+
+  final membershipsState = ref.watch(myMembershipsProvider);
+  if (!membershipsState.hasValue && !membershipsState.hasError) {
+    return const SessionLoading();
+  }
+  // Drop a previous user's memberships that may linger while reloading.
+  final memberships = (membershipsState.value ?? const <Membership>[])
+      .where((m) => m.uid == user.uid)
+      .toList();
+  final membership = activeMembership(memberships, current.lastOrgId);
+  if (membership == null) {
+    if (membershipsState.isLoading) return const SessionLoading();
+    return SessionNeedsOrganization(user, current);
+  }
+  return SessionReady(
+    user,
+    current,
+    memberships: memberships,
+    membership: membership,
+  );
 });

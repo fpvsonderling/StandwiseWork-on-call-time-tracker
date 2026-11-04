@@ -106,3 +106,115 @@ class UserProfile {
   /// "First Last", as shown in reports, CSV and Team.
   String get displayName => fullName(firstName, lastName);
 }
+
+enum MemberStatus {
+  active('active'),
+  disabled('disabled');
+
+  const MemberStatus(this.wire);
+  final String wire;
+
+  static MemberStatus fromWire(String? v) =>
+      v == disabled.wire ? disabled : active;
+}
+
+enum OrgStatus {
+  trial('trial'),
+  active('active'),
+  suspended('suspended');
+
+  const OrgStatus(this.wire);
+  final String wire;
+
+  /// Suspended organizations are read-only (spec §3.2, §9).
+  bool get writable => this != suspended;
+
+  static OrgStatus fromWire(String? v) =>
+      values.firstWhere((s) => s.wire == v, orElse: () => OrgStatus.suspended);
+}
+
+/// Per-organization regional settings (spec §1, §6 `orgs.settings`).
+class OrgSettings {
+  const OrgSettings({
+    this.currency = 'EUR',
+    this.timezone = 'Europe/Warsaw',
+    this.weekStart = DateTime.monday,
+    this.use24h = true,
+    this.csvSeparator = ',',
+    this.csvDecimal = '.',
+  });
+
+  final String currency;
+  final String timezone;
+  final int weekStart;
+  final bool use24h;
+  final String csvSeparator;
+  final String csvDecimal;
+}
+
+/// `orgs/{orgId}`.
+class Organization {
+  const Organization({
+    required this.id,
+    required this.name,
+    required this.status,
+    this.settings = const OrgSettings(),
+  });
+
+  final String id;
+  final String name;
+  final OrgStatus status;
+  final OrgSettings settings;
+}
+
+/// `orgs/{orgId}/members/{uid}`: one person's role in one organization.
+class Membership {
+  const Membership({
+    required this.orgId,
+    required this.uid,
+    required this.role,
+    required this.status,
+    required this.firstName,
+    required this.lastName,
+    required this.email,
+    this.joinedAt,
+  });
+
+  final String orgId;
+  final String uid;
+  final OrgRole role;
+  final MemberStatus status;
+  final String firstName;
+  final String lastName;
+  final String email;
+  final DateTime? joinedAt;
+
+  bool get isActive => status == MemberStatus.active;
+  bool get isAdmin => isActive && role.isAdminOrOwner;
+  String get displayName => fullName(firstName, lastName);
+}
+
+/// A pending invite as admins see it (the code itself is never stored).
+class Invite {
+  const Invite({
+    required this.id,
+    required this.email,
+    required this.role,
+    required this.expiresAt,
+  });
+
+  final String id;
+  final String email;
+  final OrgRole role;
+  final DateTime expiresAt;
+
+  bool isExpired(DateTime now) => !expiresAt.isAfter(now);
+}
+
+/// A freshly created or resent invite code, shown once to the admin.
+class InviteCode {
+  const InviteCode({required this.code, required this.expiresAt});
+
+  final String code;
+  final DateTime expiresAt;
+}

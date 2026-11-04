@@ -9,6 +9,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   collection,
+  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
@@ -322,6 +323,19 @@ describe('members', () => {
   });
 });
 
+describe('memberships across organizations', () => {
+  it('lets a user list their own memberships and nobody else’s', async () => {
+    const own = await assertSucceeds(
+      getDocs(query(collectionGroup(db('carol'), 'members'), where('uid', '==', 'carol'))),
+    );
+    if (own.size !== 2) throw new Error(`expected 2 memberships, got ${own.size}`);
+    await assertFails(
+      getDocs(query(collectionGroup(db('carol'), 'members'), where('uid', '==', 'bob'))),
+    );
+    await assertFails(getDocs(collectionGroup(db('carol'), 'members')));
+  });
+});
+
 describe('rates', () => {
   const rateDoc = (f: Firestore, uid: string, org = ORG_A) =>
     doc(f, 'orgs', org, 'members', uid, 'rates', 'p1');
@@ -504,6 +518,11 @@ describe('function-only collections', () => {
 });
 
 describe('everything else', () => {
+  it('keeps the outgoing mail queue closed', async () => {
+    await assertFails(getDocs(collection(db('alice'), 'mail')));
+    await assertFails(setDoc(doc(db('alice'), 'mail', 'x'), { to: ['a@example.com'] }));
+  });
+
   it('is closed', async () => {
     await assertFails(getDoc(doc(db('alice'), 'anything', 'x')));
     await assertFails(setDoc(doc(db('alice'), 'anything', 'x'), { a: 1 }));
