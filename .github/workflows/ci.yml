@@ -98,8 +98,6 @@ jobs:
           path: Standwise-dev.apk
 
   build-windows:
-    # Windows minutes count double on private repos: main and manual runs only.
-    if: github.event_name != 'pull_request'
     name: Build Windows (dev)
     needs: analyze-test
     runs-on: windows-latest
@@ -120,9 +118,6 @@ jobs:
           path: build/windows/x64/runner/Release/
 
   build-macos:
-    # macOS minutes count 10x on private repos: manual runs only
-    # (Actions → CI → Run workflow).
-    if: github.event_name == 'workflow_dispatch'
     name: Build macOS (dev)
     needs: analyze-test
     runs-on: macos-latest
@@ -137,9 +132,6 @@ jobs:
       - run: flutter build macos --debug -t lib/main_dev.dart $DART_DEFINES
 
   build-ios:
-    # macOS minutes count 10x on private repos: manual runs only
-    # (Actions → CI → Run workflow).
-    if: github.event_name == 'workflow_dispatch'
     name: Build iOS (dev, unsigned)
     needs: analyze-test
     runs-on: macos-latest
