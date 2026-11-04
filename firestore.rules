@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// Stage 1: deny everything except the dev platform-check probe.
+// The full data model rules (spec §3.2, §6) and their emulator tests arrive
+// in stage 2.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Dev-only probe used by Settings → Platform check. Each signed-in user
+    // can read and write only their own document, with a fixed shape.
+    match /_platformChecks/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['counter', 'platform', 'updatedAt'])
+        && request.resource.data.counter is int
+        && request.resource.data.platform is string
+        && request.resource.data.platform.size() <= 32;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
