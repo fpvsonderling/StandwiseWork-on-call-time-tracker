@@ -31,7 +31,7 @@ Fill in by running **Settings → Developer → Platform check** on each device 
 
 | Platform | Sign-in | Write | Read | Listener | Offline write | Cache read | Resync | Outcome |
 |---|---|---|---|---|---|---|---|---|
-| Windows | pending | pending | pending | pending | pending | pending | pending | — |
+| Windows | passed | passed (242 ms) | passed | passed | passed (persistence on) | passed | passed (230 ms) | **FlutterFire works on Windows; no fallback repository needed.** Run 2026-11-04 on the `dev-latest` release build. |
 | macOS | pending | pending | pending | pending | pending | pending | pending | — |
 | Android | pending | pending | pending | pending | pending | pending | pending | — |
 | iOS | pending | pending | pending | pending | pending | pending | pending | — |
