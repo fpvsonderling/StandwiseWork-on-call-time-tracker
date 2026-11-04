@@ -17,7 +17,7 @@ env:
   # of the same name override them. The desktop client secret is a secret.
   DART_DEFINES: >-
     --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ vars.GOOGLE_SERVER_CLIENT_ID || '655809046065-e8vo736pojq8tbc0m17n3msgo4ttsntr.apps.googleusercontent.com' }}
-    --dart-define=GOOGLE_APPLE_CLIENT_ID=${{ vars.GOOGLE_APPLE_CLIENT_ID }}
+    --dart-define=GOOGLE_APPLE_CLIENT_ID=${{ vars.GOOGLE_APPLE_CLIENT_ID || '655809046065-7l3sgus28ukcss1ciitntmpg575le78k.apps.googleusercontent.com' }}
     --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ vars.GOOGLE_DESKTOP_CLIENT_ID || '655809046065-lhvutaeuuepgmhp8prmtkmbhghe1se1j.apps.googleusercontent.com' }}
     --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
 
