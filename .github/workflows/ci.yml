@@ -12,13 +12,13 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.47.9'
-  # Google sign-in client IDs (docs/SETUP.md §4). Set them under
-  # Settings → Secrets and variables → Actions; empty values just leave
-  # sign-in unconfigured in the build.
+  # Google sign-in client IDs (docs/SETUP.md §4). They are identifiers, not
+  # secrets; the standwise-dev values are the defaults and Actions variables
+  # of the same name override them. The desktop client secret is a secret.
   DART_DEFINES: >-
-    --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+    --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ vars.GOOGLE_SERVER_CLIENT_ID || '655809046065-e8vo736pojq8tbc0m17n3msgo4ttsntr.apps.googleusercontent.com' }}
     --dart-define=GOOGLE_APPLE_CLIENT_ID=${{ vars.GOOGLE_APPLE_CLIENT_ID }}
-    --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ vars.GOOGLE_DESKTOP_CLIENT_ID }}
+    --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ vars.GOOGLE_DESKTOP_CLIENT_ID || '655809046065-lhvutaeuuepgmhp8prmtkmbhghe1se1j.apps.googleusercontent.com' }}
     --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
 
 jobs:
