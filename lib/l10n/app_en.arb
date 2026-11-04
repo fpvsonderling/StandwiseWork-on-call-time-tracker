@@ -124,5 +124,100 @@
   "errorSignInFailed": "Sign-in failed. Please try again.",
   "errorNetwork": "No connection. Check your internet and try again.",
   "errorPermissionDenied": "You don't have permission to do that.",
-  "errorUnknown": "Something went wrong."
+  "errorInvalidInput": "Please check the fields and try again.",
+  "errorProfileRequired": "Enter your first and last name first.",
+  "errorNotAdmin": "Only admins of this organization can do that.",
+  "errorOrgReadOnly": "This organization is read-only.",
+  "errorOrgLimit": "You already own the maximum number of organizations.",
+  "errorAlreadyMember": "This person is already a member.",
+  "errorInvitePending": "There is already a pending invite for this email. Resend it instead.",
+  "errorInviteNotFound": "This invite code isn't valid. Check it and try again.",
+  "errorInviteExpired": "This invite has expired. Ask your admin to resend it.",
+  "errorInviteUsed": "This invite was already used or revoked.",
+  "errorInviteEmailMismatch": "This invite is for a different email address. Sign in with the invited Google account.",
+  "errorUnknown": "Something went wrong.",
+  "orgChoiceTitle": "Your organization",
+  "orgChoiceIntro": "Join your company with the invite code from your email, or create a new organization if you are setting Standwise up for your team.",
+  "orgJoinTitle": "Join with an invite code",
+  "orgJoinCode": "Invite code",
+  "orgJoinCodeHint": "e.g. K7M2-9QXP",
+  "orgJoinButton": "Join",
+  "orgCreateTitle": "Create an organization",
+  "orgCreateName": "Company name",
+  "orgCreateCurrency": "Currency",
+  "orgCreateTimezone": "Timezone",
+  "orgCreateTimezoneHint": "e.g. Europe/Warsaw",
+  "orgCreateButton": "Create",
+  "orgCreateTrial": "Starts with a free trial. You become the owner.",
+  "orgNeedsConnection": "Needs an internet connection.",
+  "orgAddTitle": "Add an organization",
+  "orgSwitch": "Switch organization",
+  "orgAddOrJoin": "Create or join an organization",
+  "orgReadOnlyBanner": "This organization is read-only. You can view and export data.",
+  "fieldRequired": "Required",
+  "settingsOrganization": "Organization",
+  "settingsMembers": "Members and invites",
+  "settingsMembersSubtitle": "Invite people and see who has joined",
+  "membersTitle": "Members and invites",
+  "membersSection": "Members ({count})",
+  "@membersSection": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "invitesSection": "Pending invites ({count})",
+  "@invitesSection": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "invitesEmpty": "No pending invites.",
+  "memberDisabled": "Disabled",
+  "memberYou": "You",
+  "inviteButton": "Invite",
+  "inviteTitle": "Invite someone",
+  "inviteEmail": "Email (their Google account)",
+  "inviteEmailInvalid": "Enter a valid email address",
+  "inviteRole": "Role",
+  "inviteSend": "Create invite",
+  "inviteCreatedTitle": "Invite code",
+  "inviteCreatedBody": "Give this code to {email}. They install Standwise, sign in with that Google account and choose \"Join with an invite code\". If email sending is set up, they also get it by email. Valid until {date}.",
+  "@inviteCreatedBody": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteCopy": "Copy code",
+  "inviteCopied": "Code copied",
+  "inviteExpires": "Expires {date}",
+  "@inviteExpires": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteExpired": "Expired",
+  "inviteResend": "Resend",
+  "inviteRevoke": "Revoke",
+  "inviteRevokeConfirm": "Revoke the invite for {email}? The code stops working.",
+  "@inviteRevokeConfirm": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteRevoked": "Invite revoked",
+  "cancel": "Cancel",
+  "close": "Close"
 }

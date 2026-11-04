@@ -299,6 +299,14 @@ service cloud.firestore {
       }
     }
 
+    // ---------- Own memberships across organizations ----------
+
+    // The app lists the user's organizations with one collection-group query
+    // `members where uid == myUid`. Only your own memberships match.
+    match /{path=**}/members/{memberId} {
+      allow list: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // ---------- Dev-only platform check (stage 1 spike) ----------
 
     // Each signed-in user can read and write only their own document, with a

@@ -20,6 +20,17 @@ extension AppErrorText on AppLocalizations {
       AppErrorCode.signInFailed => errorSignInFailed,
       AppErrorCode.network => errorNetwork,
       AppErrorCode.permissionDenied => errorPermissionDenied,
+      AppErrorCode.invalidInput => errorInvalidInput,
+      AppErrorCode.profileRequired => errorProfileRequired,
+      AppErrorCode.notAdmin => errorNotAdmin,
+      AppErrorCode.orgReadOnly => errorOrgReadOnly,
+      AppErrorCode.orgLimit => errorOrgLimit,
+      AppErrorCode.alreadyMember => errorAlreadyMember,
+      AppErrorCode.invitePending => errorInvitePending,
+      AppErrorCode.inviteNotFound => errorInviteNotFound,
+      AppErrorCode.inviteExpired => errorInviteExpired,
+      AppErrorCode.inviteUsed => errorInviteUsed,
+      AppErrorCode.inviteEmailMismatch => errorInviteEmailMismatch,
       AppErrorCode.unknown => errorUnknown,
     };
   }

@@ -8,3 +8,5 @@ import './lib/config.ts';
 initializeApp();
 
 export { onUserProfileUpdated } from './profile/on_user_profile_updated.ts';
+export { createOrganization } from './orgs/create_organization.ts';
+export { acceptInvite, createInvite, resendInvite, revokeInvite } from './invites/invites.ts';

@@ -14,4 +14,8 @@ abstract interface class AuthRepository {
   });
 
   Future<void> signOut();
+
+  /// A fresh Firebase ID token for calling Cloud Functions, or `null` when
+  /// signed out.
+  Future<String?> idToken();
 }

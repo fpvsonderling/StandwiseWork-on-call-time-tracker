@@ -4,7 +4,7 @@ Work & on-call (standby) time tracker for teams — Flutter app with a Firebase 
 
 Employees track **Work** and **Standby** hours with a timer or manual entries, each with their own hourly rates per project. Admins get team reports for their organization. Many companies share one backend, each fully isolated. Native apps for **Android, iOS, Windows and macOS**; works offline.
 
-> **Status:** stage 2 of 9 (sign-in, profile, security rules, Functions skeleton). See the [build order](docs/SPEC.md#12-build-order).
+> **Status:** stage 3 of 9 (organizations, invites, members, organization switcher). See the [build order](docs/SPEC.md#12-build-order).
 
 ## Docs
 

@@ -50,6 +50,9 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<String?> idToken() async => _auth.currentUser?.getIdToken();
+
+  @override
   Future<void> signOut() async {
     await _google.signOut();
     await _auth.signOut();

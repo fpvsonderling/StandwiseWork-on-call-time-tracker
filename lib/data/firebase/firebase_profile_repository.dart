@@ -66,4 +66,19 @@ class FirebaseProfileRepository implements ProfileRepository {
       );
     }
   }
+
+  @override
+  Future<void> setLastOrg({required String uid, required String orgId}) async {
+    // Not awaited past the local write: works offline, syncs later.
+    unawaited(
+      _doc(uid)
+          .update({
+            'lastOrgId': orgId,
+            'updatedAt': FieldValue.serverTimestamp(),
+          })
+          .catchError((Object e) {
+            debugPrint('lastOrgId write failed: $e');
+          }),
+    );
+  }
 }

@@ -9,18 +9,36 @@ import 'package:standwise/domain/models.dart';
 
 import '../support/fakes.dart';
 
-Widget _app(FakeAuthRepository auth, FakeProfileRepository profiles) =>
-    ProviderScope(
-      overrides: [
-        appConfigProvider.overrideWithValue(
-          AppConfig.fromEnvironment(Flavor.dev),
-        ),
-        firebaseReadyProvider.overrideWithValue(true),
-        authRepositoryProvider.overrideWithValue(auth),
-        profileRepositoryProvider.overrideWithValue(profiles),
-      ],
-      child: const StandwiseApp(),
-    );
+Widget _app(
+  FakeAuthRepository auth,
+  FakeProfileRepository profiles, [
+  FakeOrgRepository? orgs,
+]) => ProviderScope(
+  overrides: [
+    appConfigProvider.overrideWithValue(AppConfig.fromEnvironment(Flavor.dev)),
+    firebaseReadyProvider.overrideWithValue(true),
+    authRepositoryProvider.overrideWithValue(auth),
+    profileRepositoryProvider.overrideWithValue(profiles),
+    orgRepositoryProvider.overrideWithValue(
+      orgs ??
+          FakeOrgRepository(
+            profiles: profiles,
+            memberships: [
+              membershipOf('o1'),
+              membershipOf('o1', uid: 'u2'),
+            ],
+            orgs: {
+              'o1': const Organization(
+                id: 'o1',
+                name: 'ACME',
+                status: OrgStatus.active,
+              ),
+            },
+          ),
+    ),
+  ],
+  child: const StandwiseApp(),
+);
 
 void main() {
   testWidgets('sign in, confirm the prefilled name, then enter the app', (

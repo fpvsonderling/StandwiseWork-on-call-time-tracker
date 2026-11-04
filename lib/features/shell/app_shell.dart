@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/l10n.dart';
 import '../../app/theme.dart';
+import '../../app/session.dart';
 import '../../data/providers.dart';
+import '../org/organization_choice_screen.dart';
 
 /// Responsive shell: bottom navigation on phones, `NavigationRail` from
-/// 900 px (spec §5). The header carries the organization name, role badge and
-/// sync status; those become live in stages 3 and 5.
+/// 900 px (spec §5). The header carries the organization switcher with the
+/// role badge; the sync status joins in stage 5.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.shell});
 
@@ -18,6 +20,7 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final firebaseReady = ref.watch(firebaseReadyProvider);
+    final org = ref.watch(currentOrgProvider).value;
     final destinations = [
       (Icons.timer_outlined, Icons.timer, l10n.navTimer),
       (Icons.bar_chart_outlined, Icons.bar_chart, l10n.navReports),
@@ -32,6 +35,12 @@ class AppShell extends ConsumerWidget {
     final body = Column(
       children: [
         if (!firebaseReady) const _NotConfiguredBanner(),
+        if (org != null && !org.status.writable)
+          MaterialBanner(
+            content: Text(l10n.orgReadOnlyBanner),
+            leading: const Icon(Icons.lock_outline),
+            actions: const [SizedBox.shrink()],
+          ),
         Expanded(child: shell),
       ],
     );
@@ -40,7 +49,11 @@ class AppShell extends ConsumerWidget {
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= Breakpoints.expanded;
         return Scaffold(
-          appBar: AppBar(title: Text(l10n.noOrganization)),
+          appBar: AppBar(
+            title: firebaseReady
+                ? const OrgSwitcher()
+                : Text(l10n.noOrganization),
+          ),
           body: wide
               ? Row(
                   children: [
