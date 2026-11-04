@@ -21,6 +21,7 @@ Where the spec ([`SPEC.md`](SPEC.md)) leaves something open, the simplest sensib
 | D-013 | Deployment targets: iOS 15.0, macOS 12.0 (Flutter 3.47 defaults); Android `minSdk` from Flutter (≥ 24). | Satisfy current Firebase SDK minimums. |
 | D-014 | **License:** proprietary, all rights reserved (`LICENSE`). | The product is a commercial SaaS; open-sourcing can be decided later. |
 | D-015 | macOS entitlements: App Sandbox with `network.client` and `keychain-access-groups` (`$(AppIdentifierPrefix)com.sonderling.standwise`). | Required for Google sign-in and Firebase Auth's keychain storage; the group needs a signing team when run locally (docs/SETUP.md). |
+| D-016 | **FlutterFire pinned to the 4.x line** (`firebase_core ^4.15`, `firebase_auth ^6`, `cloud_firestore ^6`; Firebase Apple SDK 12.x), not 5.x. | FlutterFire 5.x uses Firebase Apple SDK 13, which needs `gtm-session-fetcher` ≥ 4, while `google_sign_in_ios` (GoogleSignIn-iOS 9) needs 3.x, so iOS/macOS packages can't resolve. Move to 5.x when `google_sign_in_ios` supports GoogleSignIn-iOS 10. |
 
 ### Stage 1 spike results (spec §2.1)
 
