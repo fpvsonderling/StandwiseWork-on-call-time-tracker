@@ -58,11 +58,15 @@ jobs:
       # One signing key for every build so a new APK installs over the old
       # one. ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD secrets win;
       # without them a key is generated once and kept in the Actions cache.
+      # Pull requests (possibly from forks of the public repo) never touch the
+      # key: Gradle falls back to debug signing for them.
       - uses: actions/cache@v4
+        if: github.event_name != 'pull_request'
         with:
           path: ~/.standwise-signing
           key: android-signing-v1
       - name: Signing key
+        if: github.event_name != 'pull_request'
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
