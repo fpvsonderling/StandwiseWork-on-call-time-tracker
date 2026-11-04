@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/brand.dart';
 import '../../app/l10n.dart';
 import '../../app/router.dart';
+import '../../app/session.dart';
 import '../../data/providers.dart';
 
 final _packageInfoProvider = FutureProvider<PackageInfo>(
@@ -21,12 +22,28 @@ class SettingsScreen extends ConsumerWidget {
     final l10n = context.l10n;
     final config = ref.watch(appConfigProvider);
     final version = ref.watch(_packageInfoProvider).value;
+    final session = ref.watch(sessionProvider);
 
     Future<void> open(String url) =>
         launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 
     return ListView(
       children: [
+        if (session case SessionReady(:final profile)) ...[
+          _Header(l10n.settingsAccount),
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: Text(profile.displayName),
+            subtitle: Text(profile.email),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go(Routes.profile),
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: Text(l10n.settingsSignOut),
+            onTap: () => ref.read(authRepositoryProvider).signOut(),
+          ),
+        ],
         _Header(l10n.settingsAbout),
         ListTile(
           leading: const Icon(Icons.info_outline),

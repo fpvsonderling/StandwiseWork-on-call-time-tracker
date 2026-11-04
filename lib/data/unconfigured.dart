@@ -3,6 +3,7 @@ import '../core/errors.dart';
 import '../domain/models.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/platform_check_repository.dart';
+import 'repositories/profile_repository.dart';
 
 /// Used when Firebase has not been configured yet, so the app still starts
 /// (and CI can build it) before `flutterfire configure` has run.
@@ -52,4 +53,19 @@ class UnconfiguredPlatformCheckRepository implements PlatformCheckRepository {
 
   @override
   bool get persistenceEnabled => false;
+}
+
+class UnconfiguredProfileRepository implements ProfileRepository {
+  const UnconfiguredProfileRepository();
+
+  @override
+  Stream<UserProfile?> watchProfile(String uid) => Stream.value(null);
+
+  @override
+  Future<void> saveName({
+    required AuthUser user,
+    required String firstName,
+    required String lastName,
+    required bool exists,
+  }) => Future.error(const AppException(AppErrorCode.firebaseNotConfigured));
 }

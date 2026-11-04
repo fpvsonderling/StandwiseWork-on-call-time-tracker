@@ -1,27 +1,29 @@
 {
   "@@locale": "en",
-
   "appTitle": "Standwise",
-  "@appTitle": {"description": "App name. Keep in sync with Brand.appName."},
-
+  "@appTitle": {
+    "description": "App name. Keep in sync with Brand.appName."
+  },
   "navTimer": "Timer",
   "navReports": "My reports",
   "navProjects": "Projects & rates",
   "navTeam": "Team",
   "navSettings": "Settings",
-
   "noOrganization": "No organization yet",
   "roleOwner": "Owner",
   "roleAdmin": "Admin",
   "roleEmployee": "Employee",
-
   "syncSaved": "Saved",
   "syncSaving": "Saving…",
   "syncOffline": "Offline: changes will sync",
-
   "comingInStage": "Coming in build stage {stage}.",
-  "@comingInStage": {"placeholders": {"stage": {"type": "int"}}},
-
+  "@comingInStage": {
+    "placeholders": {
+      "stage": {
+        "type": "int"
+      }
+    }
+  },
   "timerPlaceholderTitle": "Track work and standby time",
   "timerPlaceholderBody": "Start a timer or add hours manually. Every entry is either Work or Standby, with your own hourly rate.",
   "reportsPlaceholderTitle": "Your hours and earnings",
@@ -30,11 +32,16 @@
   "projectsPlaceholderBody": "Set your own Work and Standby rate for each project.",
   "teamPlaceholderTitle": "Team reports",
   "teamPlaceholderBody": "Admins see hours and amounts for everyone in the organization.",
-
   "settingsProfile": "Profile",
   "settingsAbout": "About",
   "settingsVersion": "Version {version}",
-  "@settingsVersion": {"placeholders": {"version": {"type": "String"}}},
+  "@settingsVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
   "settingsSourceCode": "Source code",
   "settingsPrivacyPolicy": "Privacy policy",
   "settingsTerms": "Terms",
@@ -42,15 +49,45 @@
   "settingsPlatformCheck": "Platform check",
   "settingsPlatformCheckSubtitle": "Verify Google sign-in and Firestore on this device",
   "flavorDev": "Development build",
-
+  "welcomeHeadline": "Track work and on-call hours",
+  "welcomeBody": "Log Work and Standby time with a timer or by hand, each with your own hourly rate. Your organization gets team reports; everyone else sees only their own hours.",
+  "welcomeSignIn": "Sign in with Google",
+  "welcomePrivacy": "By signing in you agree to the terms and the privacy policy.",
+  "loadingMessage": "Loading…",
+  "profileSetupTitle": "Your name",
+  "profileSetupIntro": "Your organization sees this name in reports and on the team list. Please check it.",
+  "profileEditTitle": "Profile",
+  "profileFirstName": "First name",
+  "profileLastName": "Last name",
+  "profileEmail": "Google account",
+  "profileContinue": "Continue",
+  "profileSave": "Save",
+  "profileSaved": "Profile saved",
+  "profileUseOtherAccount": "Use a different account",
+  "nameErrorEmpty": "Required",
+  "nameErrorTooLong": "At most 50 characters",
+  "nameErrorInvalid": "Use letters, spaces, hyphens and apostrophes only",
+  "settingsAccount": "Account",
+  "settingsSignOut": "Sign out",
   "firebaseNotConfiguredBanner": "Firebase is not configured for this build yet. See docs/SETUP.md.",
-
   "checkTitle": "Platform check",
   "checkIntro": "Runs the stage 1 spike on this device: Google sign-in, Firestore read, write, live updates and the offline cache. Copy the report into docs/DECISIONS.md.",
   "checkPlatform": "Platform: {platform}",
-  "@checkPlatform": {"placeholders": {"platform": {"type": "String"}}},
+  "@checkPlatform": {
+    "placeholders": {
+      "platform": {
+        "type": "String"
+      }
+    }
+  },
   "checkSignedInAs": "Signed in as {email}",
-  "@checkSignedInAs": {"placeholders": {"email": {"type": "String"}}},
+  "@checkSignedInAs": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
   "checkNotSignedIn": "Not signed in",
   "checkRunAll": "Run all checks",
   "checkCopyReport": "Copy report",
@@ -68,12 +105,19 @@
   "checkStatusPassed": "Passed",
   "checkStatusFailed": "Failed",
   "checkLiveValue": "Live value: {counter} (from {platform})",
-  "@checkLiveValue": {"placeholders": {"counter": {"type": "int"}, "platform": {"type": "String"}}},
+  "@checkLiveValue": {
+    "placeholders": {
+      "counter": {
+        "type": "int"
+      },
+      "platform": {
+        "type": "String"
+      }
+    }
+  },
   "checkLiveHint": "Run the check on another device with the same account: this value updates here in real time.",
-
   "authRedirectSuccess": "Signed in. You can close this tab and return to Standwise.",
   "authRedirectFailure": "Sign-in did not complete. Return to Standwise and try again.",
-
   "errorFirebaseNotConfigured": "Firebase is not configured for this build.",
   "errorGoogleClientNotConfigured": "Google sign-in is not configured for this platform.",
   "errorSignInCancelled": "Sign-in was cancelled.",

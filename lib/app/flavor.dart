@@ -22,6 +22,7 @@ class AppConfig {
     required this.googleAppleClientId,
     required this.googleDesktopClientId,
     required this.googleDesktopClientSecret,
+    this.useEmulators = false,
   });
 
   factory AppConfig.fromEnvironment(Flavor flavor) => AppConfig(
@@ -36,6 +37,8 @@ class AppConfig {
     googleDesktopClientSecret: const String.fromEnvironment(
       'GOOGLE_DESKTOP_CLIENT_SECRET',
     ),
+    useEmulators:
+        flavor == Flavor.dev && const bool.fromEnvironment('USE_EMULATORS'),
   );
 
   final Flavor flavor;
@@ -43,6 +46,10 @@ class AppConfig {
   final String googleAppleClientId;
   final String googleDesktopClientId;
   final String googleDesktopClientSecret;
+
+  /// `--dart-define=USE_EMULATORS=true` talks to the local Firebase emulator
+  /// suite instead of the real project (dev only).
+  final bool useEmulators;
 
   bool get isDev => flavor == Flavor.dev;
 

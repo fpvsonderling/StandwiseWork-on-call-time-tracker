@@ -4,7 +4,7 @@ Work & on-call (standby) time tracker for teams — Flutter app with a Firebase 
 
 Employees track **Work** and **Standby** hours with a timer or manual entries, each with their own hourly rates per project. Admins get team reports for their organization. Many companies share one backend, each fully isolated. Native apps for **Android, iOS, Windows and macOS**; works offline.
 
-> **Status:** stage 1 of 9 (skeleton). See the [build order](docs/SPEC.md#12-build-order).
+> **Status:** stage 2 of 9 (sign-in, profile, security rules, Functions skeleton). See the [build order](docs/SPEC.md#12-build-order).
 
 ## Docs
 
@@ -20,6 +20,10 @@ flutter pub get
 flutter test
 flutter run -t lib/main_dev.dart                    # macOS / Windows / iOS
 flutter run --flavor dev -t lib/main_dev.dart       # Android
+
+# Backend (needs Node 22, Java 21, `npm i -g firebase-tools`)
+(cd functions && npm ci && npm test && npm run test:emulator)
+(cd rules-tests && npm ci && npm test)
 ```
 
 Without Firebase configured the app runs in a "not configured" mode. Follow [SETUP.md](docs/SETUP.md) to connect it.
@@ -34,6 +38,8 @@ lib/
   domain/       pure Dart: money, durations, ranges, names, models
   features/     screens
   l10n/         app_en.arb
+functions/      Cloud Functions (TypeScript)
+rules-tests/    Firestore security rules tests (emulator)
 ```
 
 ## License

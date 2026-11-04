@@ -4,6 +4,7 @@ library;
 
 import 'durations.dart';
 import 'money.dart';
+import 'person_name.dart';
 
 enum EntryType {
   work('work'),
@@ -77,4 +78,31 @@ class TimeEntry {
 
   int get amountMinor =>
       amountForDuration(rateMinor: rateMinor, durationMin: durationMin);
+}
+
+/// The signed-in user's profile (spec §6 `users/{uid}`).
+class UserProfile {
+  const UserProfile({
+    required this.uid,
+    required this.firstName,
+    required this.lastName,
+    required this.email,
+    this.photoUrl,
+    this.lastOrgId,
+  });
+
+  final String uid;
+  final String firstName;
+  final String lastName;
+  final String email;
+  final String? photoUrl;
+  final String? lastOrgId;
+
+  /// Both names are present and valid; otherwise the "Your name" screen is
+  /// shown before anything else (spec §4.2).
+  bool get isComplete =>
+      validateName(firstName) == null && validateName(lastName) == null;
+
+  /// "First Last", as shown in reports, CSV and Team.
+  String get displayName => fullName(firstName, lastName);
 }
