@@ -1,6 +1,6 @@
 {
-  "GOOGLE_SERVER_CLIENT_ID": "1234567890-xxxxxxxx.apps.googleusercontent.com",
-  "GOOGLE_APPLE_CLIENT_ID": "1234567890-yyyyyyyy.apps.googleusercontent.com",
-  "GOOGLE_DESKTOP_CLIENT_ID": "1234567890-zzzzzzzz.apps.googleusercontent.com",
+  "GOOGLE_SERVER_CLIENT_ID": "655809046065-e8vo736pojq8tbc0m17n3msgo4ttsntr.apps.googleusercontent.com",
+  "GOOGLE_APPLE_CLIENT_ID": "655809046065-7l3sgus28ukcss1ciitntmpg575le78k.apps.googleusercontent.com",
+  "GOOGLE_DESKTOP_CLIENT_ID": "655809046065-lhvutaeuuepgmhp8prmtkmbhghe1se1j.apps.googleusercontent.com",
   "GOOGLE_DESKTOP_CLIENT_SECRET": "GOCSPX-replace-me"
 }
