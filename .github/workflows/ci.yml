@@ -39,6 +39,55 @@ jobs:
       - run: flutter analyze
       - run: flutter test --coverage
 
+  functions:
+    name: Functions (typecheck, test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm install -g firebase-tools@15
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - name: Tests against the Firestore emulator
+        run: npm run test:emulator
+
+  rules:
+    name: Security rules tests (emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: rules-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: rules-tests/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm install -g firebase-tools@15
+      - run: npm run typecheck
+      - run: npm test
+
   build-android:
     name: Build Android (dev)
     needs: analyze-test
@@ -87,6 +136,14 @@ jobs:
             PASSWORD=$(cat "$dir/password")
           fi
           printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=standwise\nkeyPassword=%s\n' "$PASSWORD" "$PASSWORD" > key.properties
+          # The certificate fingerprints are public; Firebase needs them for
+          # Android Google sign-in (docs/SETUP.md §4).
+          {
+            echo '### Android signing certificate (add to Firebase)'
+            echo '```'
+            keytool -list -v -keystore app/release.jks -storepass "$PASSWORD" | grep -E 'SHA1:|SHA256:'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Build APK
         run: |
           flutter build apk --release --flavor dev -t lib/main_dev.dart \

@@ -1,6 +1,6 @@
 # Setup
 
-Step by step from zero. Each stage of the build adds to this file; this version covers **stage 1** (dev Firebase project, Google sign-in on every platform, running the app and the platform check).
+Step by step from zero. Each stage of the build adds to this file; this version covers **stages 1–2** (dev Firebase project, Google sign-in on every platform, running the app, the platform check, security rules, Cloud Functions and the emulators).
 
 > You need a Google account, a credit card for the Firebase Blaze plan (Cloud Functions require it; small teams stay in the free tier in practice), and for Apple platforms a Mac with Xcode.
 
@@ -12,7 +12,8 @@ Step by step from zero. Each stage of the build adds to this file; this version 
 |---|---|---|
 | Flutter | 3.47.9 stable | <https://docs.flutter.dev/get-started/install>. Run `flutter doctor` until the platforms you want are green. |
 | Node.js | 22 LTS | Needed for the Firebase CLI (and Cloud Functions from stage 2). |
-| Firebase CLI | latest | `npm install -g firebase-tools`, then `firebase login`. |
+| Firebase CLI | 15 or later | `npm install -g firebase-tools`, then `firebase login`. |
+| Java | 21 | Only for the local emulators (rules and Functions tests). |
 | FlutterFire CLI | latest | `dart pub global activate flutterfire_cli` |
 | Windows | Visual Studio 2022 with "Desktop development with C++" | For Windows builds. |
 | macOS / iOS | Xcode (current) | For Apple builds; an Apple Developer account for signing. |
@@ -56,11 +57,14 @@ This registers the apps in Firebase and overwrites the placeholder `firebase_opt
 
 > If you change the bundle ID (D-003), use your ID here and in the native projects.
 
-Deploy the stage 1 security rules and indexes:
+Deploy the security rules, indexes and Cloud Functions:
 
 ```sh
-firebase deploy --only firestore --project standwise-dev
+(cd functions && npm ci)
+firebase deploy --only firestore,functions --project standwise-dev
 ```
+
+The first Functions deploy asks to enable a few Google Cloud APIs (Cloud Functions, Cloud Build, Artifact Registry, Eventarc, Cloud Run); answer **yes**. It uses the Blaze plan; at this size it stays within the free tier.
 
 ## 4. Google sign-in per platform
 
@@ -71,8 +75,10 @@ cp config/dev.example.json config/dev.json
 ```
 
 ### Android
-1. Get the debug signing fingerprints: `cd android && ./gradlew signingReport` (look for the `devDebug` variant: SHA1 and SHA-256).
-2. Firebase console → Project settings → your Android app (`com.sonderling.standwise.dev`) → **Add fingerprint** → paste both.
+1. Get the signing fingerprints:
+   - for the APK from GitHub (`dev-latest`): GitHub → **Actions** → the latest **CI** run on `main` → **Summary** → "Android signing certificate" shows SHA1 and SHA256;
+   - for your own debug builds: `cd android && ./gradlew signingReport` (variant `devDebug`).
+2. Firebase console → Project settings → your Android app (`com.sonderling.standwise.dev`) → **Add fingerprint** → paste SHA1, then again for SHA256. Add both sets if you use both kinds of build.
 3. Put the Web client ID from step 2.4 into `GOOGLE_SERVER_CLIENT_ID`.
 
 ### iOS and macOS
@@ -109,6 +115,28 @@ To check cross-device sync, run it on two devices with the same Google account: 
 
 Priorities: **Windows and macOS** (spec §2.1). If a Windows step fails, the fallback in spec §2.1.3 is implemented before stage 2 continues.
 
+## 7. Local emulators (optional)
+
+The emulator suite runs Auth, Firestore and Functions on your computer, so you can try things without touching `standwise-dev`.
+
+```sh
+(cd functions && npm ci && npm run build)
+firebase emulators:start --project demo-standwise
+```
+
+The Emulator UI opens at <http://127.0.0.1:4000>. Run the app against it (dev flavor only):
+
+```sh
+flutter run -t lib/main_dev.dart --dart-define-from-file=config/dev.json --dart-define=USE_EMULATORS=true -d windows
+```
+
+Tests:
+
+```sh
+(cd rules-tests && npm ci && npm test)                        # security rules
+(cd functions && npm test && npm run test:emulator)          # Cloud Functions
+```
+
 ---
 
-Later stages add: Cloud Functions and the emulator suite (stage 2), the invite email extension (stage 3), App Check, Crashlytics, the prod project, deploy and release workflows, signing and store publishing (stage 8).
+Later stages add: the invite email extension (stage 3), App Check, Crashlytics, the prod project, deploy and release workflows, signing and store publishing (stage 8).

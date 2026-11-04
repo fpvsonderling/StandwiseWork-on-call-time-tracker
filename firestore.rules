@@ -1,23 +1,317 @@
 rules_version = '2';
 
-// Stage 1: deny everything except the dev platform-check probe.
-// The full data model rules (spec §3.2, §6) and their emulator tests arrive
-// in stage 2.
+// Security rules for the whole data model (spec §3.2, §6).
+//
+// - Identity comes only from request.auth. A uid, role or org ID in the
+//   request data is checked against it, never trusted.
+// - Memberships, invites, summaries, the audit log and organization
+//   create/delete are written only by Cloud Functions (Admin SDK bypasses
+//   these rules), so clients can never write them.
+// - Disabled members and suspended organizations are read-only.
+// - Every written field is validated: allowed keys, types, sizes, immutable
+//   uid/createdAt, server timestamps.
+//
+// Tested in rules-tests/ against the Firestore emulator.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Dev-only probe used by Settings → Platform check. Each signed-in user
-    // can read and write only their own document, with a fixed shape.
-    match /_platformChecks/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if request.auth != null
-        && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['counter', 'platform', 'updatedAt'])
-        && request.resource.data.counter is int
-        && request.resource.data.platform is string
-        && request.resource.data.platform.size() <= 32;
+    // ---------- Helpers ----------
+
+    function signedIn() {
+      return request.auth != null;
     }
 
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function verifiedEmail() {
+      return signedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+
+    function orgDoc(orgId) {
+      return get(/databases/$(database)/documents/orgs/$(orgId));
+    }
+
+    function memberPath(orgId, uid) {
+      return /databases/$(database)/documents/orgs/$(orgId)/members/$(uid);
+    }
+
+    function isMember(orgId) {
+      return signedIn() && exists(memberPath(orgId, request.auth.uid));
+    }
+
+    function myMembership(orgId) {
+      return get(memberPath(orgId, request.auth.uid)).data;
+    }
+
+    function isActiveMember(orgId) {
+      return isMember(orgId) && myMembership(orgId).status == 'active';
+    }
+
+    function isAdmin(orgId) {
+      return isActiveMember(orgId)
+        && myMembership(orgId).role in ['owner', 'admin'];
+    }
+
+    function orgWritable(orgId) {
+      return orgDoc(orgId).data.status in ['trial', 'active'];
+    }
+
+    // Active member of an organization that is not suspended.
+    function canWrite(orgId) {
+      return isActiveMember(orgId) && orgWritable(orgId);
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isCreate() {
+      return resource == null;
+    }
+
+    // createdAt is the server time on create and never changes afterwards.
+    function createdAtOk() {
+      return isCreate()
+        ? incoming().createdAt == request.time
+        : incoming().createdAt == existing().createdAt;
+    }
+
+    function updatedAtOk() {
+      return incoming().updatedAt == request.time;
+    }
+
+    function stringMax(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    function optionalString(data, key, max) {
+      return !(key in data) || data[key] == null || stringMax(data[key], max);
+    }
+
+    // First/last name: 1–50 chars; Unicode letters, spaces, hyphens and
+    // apostrophes (spec §4.2). Mirrors lib/domain/person_name.dart.
+    function validName(v) {
+      return v is string
+        && v.size() >= 1
+        && v.size() <= 50
+        && v.matches("^[\\p{L}\\p{M}' ’-]+$")
+        && v.matches(".*\\p{L}.*")
+        && v == v.trim();
+    }
+
+    function validRate(v) {
+      return v is int && v >= 0 && v <= 1000000;
+    }
+
+    // ---------- Users ----------
+
+    match /users/{uid} {
+      allow read: if isSelf(uid);
+
+      // The client creates and edits its own profile. Deletion goes through
+      // the deleteAccount function.
+      allow create, update: if isSelf(uid)
+        && verifiedEmail()
+        && incoming().keys().hasOnly([
+          'firstName', 'lastName', 'email', 'photoUrl', 'lastOrgId',
+          'createdAt', 'updatedAt'])
+        && incoming().keys().hasAll([
+          'firstName', 'lastName', 'email', 'createdAt', 'updatedAt'])
+        && validName(incoming().firstName)
+        && validName(incoming().lastName)
+        && incoming().email == request.auth.token.email
+        && optionalString(incoming(), 'photoUrl', 2048)
+        && optionalString(incoming(), 'lastOrgId', 128)
+        && createdAtOk()
+        && updatedAtOk();
+
+      allow delete: if false;
+    }
+
+    // ---------- Organizations ----------
+
+    match /orgs/{orgId} {
+      // Created and deleted only by createOrganization / deleteOrganization.
+      allow read: if isMember(orgId);
+      allow create, delete: if false;
+
+      // Admins edit the name and settings; status, plan, owner and counters
+      // belong to Cloud Functions.
+      allow update: if isAdmin(orgId)
+        && orgWritable(orgId)
+        && incoming().diff(existing()).affectedKeys()
+             .hasOnly(['name', 'settings', 'updatedAt'])
+        && stringMax(incoming().name, 100)
+        && incoming().name.size() >= 1
+        && validOrgSettings(incoming().settings)
+        && updatedAtOk();
+
+      function validOrgSettings(s) {
+        return s is map
+          && s.keys().hasOnly(['currency', 'timezone', 'weekStart', 'use24h',
+                               'csvSeparator', 'csvDecimal'])
+          && s.keys().hasAll(['currency', 'timezone', 'weekStart', 'use24h',
+                              'csvSeparator', 'csvDecimal'])
+          && s.currency is string && s.currency.matches('^[A-Z]{3}$')
+          && stringMax(s.timezone, 64) && s.timezone.size() >= 1
+          && s.weekStart is int && s.weekStart >= 1 && s.weekStart <= 7
+          && s.use24h is bool
+          && s.csvSeparator in [',', ';', '\t']
+          && s.csvDecimal in ['.', ','];
+      }
+
+      // ----- Members (written only by Cloud Functions) -----
+
+      match /members/{uid} {
+        allow read: if (isSelf(uid) && isMember(orgId)) || isAdmin(orgId);
+        allow write: if false;
+
+        // Each member sets their own Work/Standby rate per project; admins
+        // can read them for team reports.
+        match /rates/{projectId} {
+          allow read: if (isSelf(uid) && isMember(orgId)) || isAdmin(orgId);
+          allow create, update: if isSelf(uid)
+            && canWrite(orgId)
+            && incoming().keys().hasOnly(['workRateMinor', 'standbyRateMinor', 'updatedAt'])
+            && incoming().keys().hasAll(['workRateMinor', 'standbyRateMinor', 'updatedAt'])
+            && validRate(incoming().workRateMinor)
+            && validRate(incoming().standbyRateMinor)
+            && updatedAtOk();
+          allow delete: if isSelf(uid) && canWrite(orgId);
+        }
+      }
+
+      // ----- Projects (admins manage, members read) -----
+
+      match /projects/{projectId} {
+        allow read: if isMember(orgId);
+        allow create, update: if isAdmin(orgId)
+          && orgWritable(orgId)
+          && incoming().keys().hasOnly([
+            'name', 'client', 'color', 'archived', 'deleted',
+            'createdAt', 'updatedAt'])
+          && incoming().keys().hasAll([
+            'name', 'archived', 'deleted', 'createdAt', 'updatedAt'])
+          && stringMax(incoming().name, 100) && incoming().name.size() >= 1
+          && optionalString(incoming(), 'client', 100)
+          && (!('color' in incoming()) || (incoming().color is int
+               && incoming().color >= 0 && incoming().color <= 4294967295))
+          && incoming().archived is bool
+          && incoming().deleted is bool
+          && createdAtOk()
+          && updatedAtOk();
+        // Projects are soft-deleted (deleted = true) so old entries keep them.
+        allow delete: if false;
+      }
+
+      // ----- Time entries -----
+
+      match /entries/{entryId} {
+        // Employees only ever see their own entries; a list query must be
+        // constrained with where('uid', '==', myUid) or it is rejected.
+        allow read: if (isMember(orgId) && existing().uid == request.auth.uid)
+          || isAdmin(orgId);
+
+        allow create: if canWrite(orgId)
+          && incoming().uid == request.auth.uid
+          && validEntry()
+          && createdAtOk();
+
+        // Admins can read other people's entries but never edit them.
+        allow update: if canWrite(orgId)
+          && existing().uid == request.auth.uid
+          && incoming().uid == existing().uid
+          && validEntry()
+          && createdAtOk();
+
+        // Soft delete (deleted = true); purgeDeletedEntries hard-deletes.
+        allow delete: if false;
+
+        function validEntry() {
+          let d = incoming();
+          return d.keys().hasOnly([
+              'uid', 'projectId', 'type', 'rateMinor', 'start', 'end',
+              'durationMin', 'description', 'monthKey', 'deleted',
+              'createdAt', 'updatedAt'])
+            && d.keys().hasAll([
+              'uid', 'type', 'rateMinor', 'start', 'end', 'durationMin',
+              'description', 'monthKey', 'deleted', 'createdAt', 'updatedAt'])
+            && d.type in ['work', 'standby']
+            && validRate(d.rateMinor)
+            && d.start is timestamp
+            && d.end is timestamp
+            && d.end > d.start
+            && d.end - d.start <= duration.value(24, 'h')
+            && d.durationMin is int
+            && d.durationMin == math.floor((d.end.toMillis() - d.start.toMillis()) / 60000)
+            && stringMax(d.description, 500)
+            && d.monthKey is string
+            && d.monthKey.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+            && d.deleted is bool
+            && optionalString(d, 'projectId', 128)
+            && updatedAtOk();
+        }
+      }
+
+      // ----- Running timer, one per member -----
+
+      match /timers/{uid} {
+        allow read: if (isSelf(uid) && isMember(orgId)) || isAdmin(orgId);
+        allow create, update: if isSelf(uid)
+          && canWrite(orgId)
+          && incoming().keys().hasOnly(['projectId', 'type', 'description', 'start', 'updatedAt'])
+          && incoming().keys().hasAll(['type', 'description', 'start', 'updatedAt'])
+          && incoming().type in ['work', 'standby']
+          && stringMax(incoming().description, 500)
+          && optionalString(incoming(), 'projectId', 128)
+          && incoming().start is timestamp
+          // A started timer may be written later (offline), never in the future.
+          && incoming().start <= request.time + duration.value(5, 'm')
+          && updatedAtOk();
+        // Stopping deletes the timer and creates the entry in one batch.
+        allow delete: if isSelf(uid) && canWrite(orgId);
+      }
+
+      // ----- Written only by Cloud Functions -----
+
+      match /summaries/{summaryId} {
+        allow read: if (isMember(orgId) && existing().uid == request.auth.uid)
+          || isAdmin(orgId);
+        allow write: if false;
+      }
+
+      match /invites/{inviteId} {
+        allow read: if isAdmin(orgId);
+        allow write: if false;
+      }
+
+      match /auditLog/{logId} {
+        allow read: if isAdmin(orgId);
+        allow write: if false;
+      }
+    }
+
+    // ---------- Dev-only platform check (stage 1 spike) ----------
+
+    // Each signed-in user can read and write only their own document, with a
+    // fixed shape. Harmless in prod: the screen exists only in dev builds.
+    match /_platformChecks/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if isSelf(uid)
+        && incoming().keys().hasOnly(['counter', 'platform', 'updatedAt'])
+        && incoming().counter is int
+        && stringMax(incoming().platform, 32);
+    }
+
+    // Everything else is closed.
     match /{document=**} {
       allow read, write: if false;
     }

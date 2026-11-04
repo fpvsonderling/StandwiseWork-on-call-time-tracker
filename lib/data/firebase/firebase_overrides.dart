@@ -9,6 +9,7 @@ import '../../core/auth/google_tokens.dart';
 import '../providers.dart';
 import 'firebase_auth_repository.dart';
 import 'firebase_platform_check_repository.dart';
+import 'firebase_profile_repository.dart';
 
 /// Initializes Firebase for [config] and returns provider overrides wiring the
 /// FlutterFire repositories. Returns an empty list when Firebase is not
@@ -25,6 +26,15 @@ Future<List<Override>> initFirebase(AppConfig config) async {
     return const [];
   }
   final db = FirebaseFirestore.instance;
+  if (config.useEmulators) {
+    // Local emulator suite (docs/SETUP.md §7). The Android emulator reaches
+    // the host computer at 10.0.2.2.
+    final host = defaultTargetPlatform == TargetPlatform.android
+        ? '10.0.2.2'
+        : '127.0.0.1';
+    await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+    db.useFirestoreEmulator(host, 8080);
+  }
   // Offline cache: default on mobile/macOS; set explicitly so Windows uses it
   // too (verified by the platform check).
   db.settings = const Settings(
@@ -40,5 +50,6 @@ Future<List<Override>> initFirebase(AppConfig config) async {
     platformCheckRepositoryProvider.overrideWithValue(
       FirebasePlatformCheckRepository(db),
     ),
+    profileRepositoryProvider.overrideWithValue(FirebaseProfileRepository(db)),
   ];
 }
