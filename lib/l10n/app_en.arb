@@ -16,14 +16,6 @@
   "syncSaved": "Saved",
   "syncSaving": "Saving…",
   "syncOffline": "Offline: changes will sync",
-  "comingInStage": "Coming in build stage {stage}.",
-  "@comingInStage": {
-    "placeholders": {
-      "stage": {
-        "type": "int"
-      }
-    }
-  },
   "timerPlaceholderTitle": "Track work and standby time",
   "timerPlaceholderBody": "Start a timer or add hours manually. Every entry is either Work or Standby, with your own hourly rate.",
   "reportsPlaceholderTitle": "Your hours and earnings",
@@ -280,5 +272,72 @@
       }
     }
   },
-  "projectDeleteBody": "The project disappears from lists and pickers. Its entries stay and show “No project (deleted)”."
+  "projectDeleteBody": "The project disappears from lists and pickers. Its entries stay and show “No project (deleted)”.",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "add": "Add",
+  "start": "Start",
+  "stop": "Stop",
+  "undo": "Undo",
+  "total": "Total",
+  "rate": "Rate",
+  "project": "Project",
+  "description": "Description",
+  "thisWeek": "This week",
+  "modeTimer": "Timer",
+  "modeManual": "Manual entry",
+  "trackerDescriptionHint": "What are you working on?",
+  "rateNotSet": "No rate set for this project; set it in Projects & rates",
+  "yourRate": "Your rate: {rate}/h",
+  "@yourRate": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "runningFor": "Running for {time}",
+  "@runningFor": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fromTime": "From {time}",
+  "@fromTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "toTime": "To {time}",
+  "@toTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "spanError": "Longer than 24 hours",
+  "weekChartLabel": "Hours per day this week, Work and Standby",
+  "noDescription": "(no description)",
+  "continueEntry": "Continue",
+  "entryDeleted": "Entry deleted",
+  "entryEdit": "Edit entry",
+  "showEarlierDays": "Show earlier days",
+  "timerEmptyTitle": "No hours yet",
+  "timerEmptyBody": "Type what you are working on and press Start, or switch to Manual entry to add hours you already worked.",
+  "sampleLoad": "Load sample data",
+  "sampleRemove": "Remove sample data",
+  "syncTooltip": "Sync status",
+  "writeRejected": "A change was not saved: {reason}",
+  "@writeRejected": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  }
 }

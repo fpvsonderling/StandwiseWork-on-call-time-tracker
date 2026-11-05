@@ -13,6 +13,7 @@ import '../features/placeholder/placeholder_screens.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/shell/app_shell.dart';
 import '../features/spike/platform_check_screen.dart';
+import '../features/timer/timer_screen.dart';
 import 'session.dart';
 
 abstract final class Routes {
@@ -81,7 +82,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: Routes.timer,
-                builder: (_, _) => const TimerPlaceholder(),
+                builder: (_, _) => const TimerScreen(),
               ),
             ],
           ),

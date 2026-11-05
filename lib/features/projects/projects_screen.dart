@@ -9,6 +9,7 @@ import '../../domain/durations.dart';
 import '../../domain/money.dart';
 import '../../domain/projects.dart';
 import '../common/widgets.dart';
+import '../placeholder/placeholder_screens.dart';
 
 /// Own total minutes per project (or [noProjectKey]), all time. Filled from
 /// the monthly summaries (stage 7); empty until then.
@@ -23,7 +24,7 @@ class ProjectsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final ctx = ref.watch(workContextProvider);
-    if (ctx == null) return const SizedBox.shrink();
+    if (ctx == null) return const ProjectsPlaceholder();
     final all = ref.watch(projectsProvider).value ?? const <Project>[];
     final rates = ref.watch(myRatesProvider).value ?? const {};
     final totals = ref.watch(myProjectTotalsProvider);

@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:standwise/core/auth/google_tokens.dart';
 import 'package:standwise/core/errors.dart';
 import 'package:standwise/data/repositories/auth_repository.dart';
+import 'package:standwise/data/repositories/entries_repository.dart';
 import 'package:standwise/data/repositories/org_repository.dart';
 import 'package:standwise/data/repositories/profile_repository.dart';
 import 'package:standwise/data/repositories/projects_repository.dart';
 import 'package:standwise/domain/models.dart';
 import 'package:standwise/domain/projects.dart';
+import 'package:standwise/domain/timer.dart';
 
 const testUser = AuthUser(
   uid: 'u1',
@@ -298,4 +300,105 @@ class FakeProjectsRepository implements ProjectsRepository {
     rates[rate.projectId] = rate;
     _changes.add(null);
   }
+}
+
+class FakeEntriesRepository implements EntriesRepository {
+  FakeEntriesRepository({List<TimeEntry>? entries, this.timer})
+    : entries = [...?entries];
+
+  /// Including soft-deleted ones.
+  final List<TimeEntry> entries;
+  RunningTimer? timer;
+  final _changes = StreamController<void>.broadcast();
+  var _ids = 0;
+
+  void _changed() => _changes.add(null);
+
+  /// Replaces the running timer as if another device changed it.
+  void setTimer(RunningTimer? t) {
+    timer = t;
+    _changed();
+  }
+
+  void _put(TimeEntry e) {
+    entries
+      ..removeWhere((x) => x.id == e.id)
+      ..add(e);
+  }
+
+  @override
+  Stream<RunningTimer?> watchTimer(String orgId, String uid) =>
+      watchValue(() => timer, _changes.stream);
+
+  @override
+  Future<void> startTimer(
+    String orgId,
+    String uid,
+    RunningTimer timer, {
+    TimeEntry? stopped,
+  }) async {
+    if (stopped != null) _put(stopped);
+    this.timer = timer;
+    _changed();
+  }
+
+  @override
+  Future<void> updateTimer(String orgId, String uid, RunningTimer timer) async {
+    this.timer = timer;
+    _changed();
+  }
+
+  @override
+  Future<void> stopTimer(String orgId, String uid, TimeEntry? entry) async {
+    if (entry != null) _put(entry);
+    timer = null;
+    _changed();
+  }
+
+  @override
+  String newEntryId(String orgId) => 'e${++_ids}';
+
+  @override
+  Future<void> addEntry(String orgId, TimeEntry entry) async {
+    _put(entry);
+    _changed();
+  }
+
+  @override
+  Future<void> updateEntry(String orgId, TimeEntry entry) async {
+    _put(entry);
+    _changed();
+  }
+
+  @override
+  Future<void> setDeleted(
+    String orgId,
+    String entryId, {
+    required bool deleted,
+  }) async {
+    final e = entries.firstWhere((x) => x.id == entryId);
+    _put(e.copyWith(deleted: deleted));
+    _changed();
+  }
+
+  @override
+  Stream<List<TimeEntry>> watchEntries(
+    String orgId, {
+    required String? uid,
+    required DateTime from,
+    DateTime? to,
+  }) => watchValue(
+    () =>
+        entries
+            .where(
+              (e) =>
+                  !e.deleted &&
+                  (uid == null || e.uid == uid) &&
+                  !e.start.isBefore(from) &&
+                  (to == null || e.start.isBefore(to)),
+            )
+            .toList()
+          ..sort((a, b) => b.start.compareTo(a.start)),
+    _changes.stream,
+  );
 }

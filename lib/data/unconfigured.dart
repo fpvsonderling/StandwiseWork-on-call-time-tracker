@@ -2,7 +2,9 @@ import '../core/auth/google_tokens.dart';
 import '../core/errors.dart';
 import '../domain/models.dart';
 import '../domain/projects.dart';
+import '../domain/timer.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/entries_repository.dart';
 import 'repositories/org_repository.dart';
 import 'repositories/platform_check_repository.dart';
 import 'repositories/profile_repository.dart';
@@ -152,4 +154,54 @@ class UnconfiguredProjectsRepository implements ProjectsRepository {
 
   @override
   Future<void> saveRate(String orgId, String uid, ProjectRate rate) => _fail();
+}
+
+class UnconfiguredEntriesRepository implements EntriesRepository {
+  const UnconfiguredEntriesRepository();
+
+  static Future<Never> _fail() =>
+      Future.error(const AppException(AppErrorCode.firebaseNotConfigured));
+
+  @override
+  Stream<RunningTimer?> watchTimer(String orgId, String uid) =>
+      Stream.value(null);
+
+  @override
+  Future<void> startTimer(
+    String orgId,
+    String uid,
+    RunningTimer timer, {
+    TimeEntry? stopped,
+  }) => _fail();
+
+  @override
+  Future<void> updateTimer(String orgId, String uid, RunningTimer timer) =>
+      _fail();
+
+  @override
+  Future<void> stopTimer(String orgId, String uid, TimeEntry? entry) => _fail();
+
+  @override
+  String newEntryId(String orgId) => 'local';
+
+  @override
+  Future<void> addEntry(String orgId, TimeEntry entry) => _fail();
+
+  @override
+  Future<void> updateEntry(String orgId, TimeEntry entry) => _fail();
+
+  @override
+  Future<void> setDeleted(
+    String orgId,
+    String entryId, {
+    required bool deleted,
+  }) => _fail();
+
+  @override
+  Stream<List<TimeEntry>> watchEntries(
+    String orgId, {
+    required String? uid,
+    required DateTime from,
+    DateTime? to,
+  }) => Stream.value(const []);
 }

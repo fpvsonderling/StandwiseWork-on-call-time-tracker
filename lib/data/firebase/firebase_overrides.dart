@@ -9,6 +9,7 @@ import '../../core/auth/google_tokens.dart';
 import '../providers.dart';
 import 'callable_client.dart';
 import 'firebase_auth_repository.dart';
+import 'firebase_entries_repository.dart';
 import 'firebase_org_repository.dart';
 import 'firebase_platform_check_repository.dart';
 import 'firebase_profile_repository.dart';
@@ -59,6 +60,9 @@ Future<List<Override>> initFirebase(AppConfig config) async {
   return [
     firebaseReadyProvider.overrideWithValue(true),
     syncTrackerProvider.overrideWithValue(sync),
+    entriesRepositoryProvider.overrideWithValue(
+      FirebaseEntriesRepository(db, sync),
+    ),
     projectsRepositoryProvider.overrideWithValue(
       FirebaseProjectsRepository(db, sync),
     ),

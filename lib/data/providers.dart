@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/flavor.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/entries_repository.dart';
 import 'repositories/org_repository.dart';
 import 'repositories/platform_check_repository.dart';
 import 'repositories/profile_repository.dart';
@@ -38,4 +39,8 @@ final syncTrackerProvider = Provider<SyncTracker>((ref) => SyncTracker());
 
 final projectsRepositoryProvider = Provider<ProjectsRepository>(
   (ref) => const UnconfiguredProjectsRepository(),
+);
+
+final entriesRepositoryProvider = Provider<EntriesRepository>(
+  (ref) => const UnconfiguredEntriesRepository(),
 );

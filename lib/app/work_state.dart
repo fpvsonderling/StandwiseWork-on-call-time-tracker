@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/providers.dart';
 import '../data/sync.dart';
+import '../domain/date_ranges.dart';
 import '../domain/models.dart';
 import '../domain/projects.dart';
+import '../domain/timer.dart';
 import 'session.dart';
 
 /// Who is working where: the signed-in member in the organization in use.
@@ -76,4 +78,54 @@ final myRatesProvider = StreamProvider<Map<String, ProjectRate>>((ref) {
 
 final syncStateProvider = StreamProvider<SyncState>(
   (ref) => ref.watch(syncTrackerProvider).states,
+);
+
+/// The signed-in member's running timer (spec §5.1).
+final timerProvider = StreamProvider<RunningTimer?>((ref) {
+  final ctx = ref.watch(
+    workContextProvider.select((c) => c == null ? null : (c.orgId, c.uid)),
+  );
+  if (ctx == null) return Stream.value(null);
+  return ref.watch(entriesRepositoryProvider).watchTimer(ctx.$1, ctx.$2);
+});
+
+/// How many days of history the Timer list shows (spec §5.1: 14, "Show
+/// earlier days" adds 14 more).
+class HistoryDays extends Notifier<int> {
+  static const step = 14;
+
+  @override
+  int build() {
+    // Back to two weeks when the organization changes.
+    ref.watch(workContextProvider.select((c) => c?.orgId));
+    return step;
+  }
+
+  void more() => state += step;
+}
+
+final historyDaysProvider = NotifierProvider<HistoryDays, int>(HistoryDays.new);
+
+/// Start of the Timer list: [historyDaysProvider] days back, and never later
+/// than the start of the current week (the week summary needs it).
+DateTime historyStart(DateTime now, int days, int weekStart) {
+  final back = DateTime(now.year, now.month, now.day - (days - 1));
+  final week = startOfWeek(now, weekStart: weekStart);
+  return back.isBefore(week) ? back : week;
+}
+
+/// The signed-in member's own entries for the Timer screen.
+final myRecentEntriesProvider = StreamProvider<List<TimeEntry>>((ref) {
+  final ctx = ref.watch(workContextProvider);
+  if (ctx == null) return Stream.value(const []);
+  final days = ref.watch(historyDaysProvider);
+  final from = historyStart(DateTime.now(), days, ctx.settings.weekStart);
+  return ref
+      .watch(entriesRepositoryProvider)
+      .watchEntries(ctx.orgId, uid: ctx.uid, from: from);
+});
+
+/// Writes the server rejected after the fact (shown as a SnackBar).
+final writeErrorsProvider = StreamProvider<Object>(
+  (ref) => ref.watch(syncTrackerProvider).errors,
 );

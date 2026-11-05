@@ -5,12 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../../app/l10n.dart';
 import '../../app/theme.dart';
 import '../../app/session.dart';
+import '../../app/work_state.dart';
+import '../../data/sync.dart';
 import '../../data/providers.dart';
 import '../org/organization_choice_screen.dart';
 
 /// Responsive shell: bottom navigation on phones, `NavigationRail` from
 /// 900 px (spec §5). The header carries the organization switcher with the
-/// role badge; the sync status joins in stage 5.
+/// role badge, and the sync status (Saved / Saving… / Offline).
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.shell});
 
@@ -21,6 +23,15 @@ class AppShell extends ConsumerWidget {
     final l10n = context.l10n;
     final firebaseReady = ref.watch(firebaseReadyProvider);
     final org = ref.watch(currentOrgProvider).value;
+    ref.listen(writeErrorsProvider, (_, next) {
+      final e = next.value;
+      if (e == null) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(l10n.writeRejected(l10n.error(e)))),
+        );
+    });
     final destinations = [
       (Icons.timer_outlined, Icons.timer, l10n.navTimer),
       (Icons.bar_chart_outlined, Icons.bar_chart, l10n.navReports),
@@ -53,6 +64,10 @@ class AppShell extends ConsumerWidget {
             title: firebaseReady
                 ? const OrgSwitcher()
                 : Text(l10n.noOrganization),
+            actions: [
+              if (firebaseReady) _SyncIndicator(showLabel: wide),
+              const SizedBox(width: 8),
+            ],
           ),
           body: wide
               ? Row(
@@ -115,6 +130,56 @@ class _NotConfiguredBanner extends StatelessWidget {
                 style: TextStyle(color: scheme.onTertiaryContainer),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Saved / Saving… / Offline: changes will sync (spec §5, §8).
+class _SyncIndicator extends ConsumerWidget {
+  const _SyncIndicator({required this.showLabel});
+
+  final bool showLabel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    // The timer listener reports whether Firestore is serving from cache.
+    ref.watch(timerProvider);
+    final state = ref.watch(syncStateProvider).value ?? SyncState.saved;
+    final scheme = Theme.of(context).colorScheme;
+    final (icon, text, color) = switch (state) {
+      SyncState.saved => (
+        Icons.cloud_done_outlined,
+        l10n.syncSaved,
+        scheme.outline,
+      ),
+      SyncState.saving => (
+        Icons.cloud_upload_outlined,
+        l10n.syncSaving,
+        scheme.primary,
+      ),
+      SyncState.offline => (
+        Icons.cloud_off_outlined,
+        l10n.syncOffline,
+        scheme.error,
+      ),
+    };
+    return Semantics(
+      liveRegion: true,
+      label: text,
+      child: Tooltip(
+        message: text,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color),
+            if (showLabel) ...[
+              const SizedBox(width: 6),
+              Text(text, style: TextStyle(color: color)),
+            ],
           ],
         ),
       ),
