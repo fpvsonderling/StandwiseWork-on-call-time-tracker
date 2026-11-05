@@ -339,5 +339,46 @@
         "type": "String"
       }
     }
-  }
+  },
+  "rangeThisWeek": "This week",
+  "rangeLastWeek": "Last week",
+  "rangeThisMonth": "This month",
+  "rangeLastMonth": "Last month",
+  "rangeCustom": "Custom range",
+  "allProjects": "All projects",
+  "archived": "archived",
+  "amount": "Amount",
+  "client": "Client",
+  "share": "Share",
+  "totalDetail": "{hours} h · {count, plural, =1{1 entry} other{{count} entries}}",
+  "@totalDetail": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursAxis": "Hours",
+  "chartLabelDays": "Bar chart of hours per day, stacked by project",
+  "chartLabelWeeks": "Bar chart of hours per week, stacked by project",
+  "weekOf": "Week of {date}",
+  "@weekOf": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "exportCsv": "Export CSV",
+  "reportEmpty": "No entries in this range.",
+  "csvDate": "Date",
+  "csvStart": "Start",
+  "csvEnd": "End",
+  "csvDuration": "Duration (h:mm)",
+  "csvHours": "Hours",
+  "csvType": "Type",
+  "csvEmail": "Email"
 }

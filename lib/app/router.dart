@@ -9,6 +9,7 @@ import '../features/org/members_screen.dart';
 import '../features/org/organization_choice_screen.dart';
 import '../features/profile/profile_screens.dart';
 import '../features/projects/projects_screen.dart';
+import '../features/reports/reports_screen.dart';
 import '../features/placeholder/placeholder_screens.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/shell/app_shell.dart';
@@ -90,7 +91,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: Routes.reports,
-                builder: (_, _) => const ReportsPlaceholder(),
+                builder: (_, _) => const ReportsScreen(),
               ),
             ],
           ),
