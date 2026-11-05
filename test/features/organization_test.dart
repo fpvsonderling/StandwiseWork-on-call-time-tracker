@@ -63,7 +63,7 @@ void main() {
       orgs.calls,
       contains('createOrganization:ACME Sp. z o.o.:EUR:Europe/Warsaw'),
     );
-    expect(find.text('Track work and standby time'), findsOneWidget);
+    expect(find.text('What are you working on?'), findsOneWidget);
     expect(find.text('ACME Sp. z o.o.'), findsOneWidget);
     expect(find.text('Owner'), findsOneWidget);
   });

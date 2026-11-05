@@ -147,6 +147,10 @@ Invites always show a code the admin can share by hand. To also send them by ema
 
 Already queued invites are sent once the extension is running. Without it the documents just stay in `mail`.
 
+## 9. Scheduled cleanup
+
+`purgeDeletedEntries` runs daily and needs the **Cloud Scheduler API**. The first `firebase deploy --only functions` turns it on automatically; if the deploy says it can't, open <https://console.cloud.google.com/apis/library/cloudscheduler.googleapis.com?project=standwise-dev>, click **Enable** and deploy again.
+
 ---
 
 Later stages add: App Check, Crashlytics, the prod project, deploy and release workflows, signing and store publishing (stage 8).

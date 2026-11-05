@@ -8,10 +8,15 @@ import '../features/auth/welcome_screen.dart';
 import '../features/org/members_screen.dart';
 import '../features/org/organization_choice_screen.dart';
 import '../features/profile/profile_screens.dart';
-import '../features/placeholder/placeholder_screens.dart';
+import '../features/projects/projects_screen.dart';
+import '../features/reports/reports_screen.dart';
+import '../features/settings/audit_log_screen.dart';
+import '../features/settings/org_settings_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/shell/app_shell.dart';
 import '../features/spike/platform_check_screen.dart';
+import '../features/team/team_screen.dart';
+import '../features/timer/timer_screen.dart';
 import 'session.dart';
 
 abstract final class Routes {
@@ -23,6 +28,8 @@ abstract final class Routes {
   static const profile = '/settings/profile';
   static const members = '/settings/members';
   static const addOrganization = '/settings/add-organization';
+  static const orgSettings = '/settings/organization';
+  static const activity = '/settings/activity';
   static const platformCheck = '/settings/platform-check';
 
   static const loading = '/loading';
@@ -80,7 +87,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: Routes.timer,
-                builder: (_, _) => const TimerPlaceholder(),
+                builder: (_, _) => const TimerScreen(),
               ),
             ],
           ),
@@ -88,7 +95,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: Routes.reports,
-                builder: (_, _) => const ReportsPlaceholder(),
+                builder: (_, _) => const ReportsScreen(),
               ),
             ],
           ),
@@ -96,16 +103,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: Routes.projects,
-                builder: (_, _) => const ProjectsPlaceholder(),
+                builder: (_, _) => const ProjectsScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                path: Routes.team,
-                builder: (_, _) => const TeamPlaceholder(),
-              ),
+              GoRoute(path: Routes.team, builder: (_, _) => const TeamScreen()),
             ],
           ),
           StatefulShellBranch(
@@ -121,6 +125,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'members',
                     builder: (_, _) => const MembersScreen(),
+                  ),
+                  GoRoute(
+                    path: 'organization',
+                    builder: (_, _) => const OrgSettingsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'activity',
+                    builder: (_, _) => const AuditLogScreen(),
                   ),
                   GoRoute(
                     path: 'add-organization',

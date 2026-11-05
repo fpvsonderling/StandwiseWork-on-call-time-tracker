@@ -1,10 +1,15 @@
 import '../core/auth/google_tokens.dart';
 import '../core/errors.dart';
 import '../domain/models.dart';
+import '../domain/projects.dart';
+import '../domain/summaries.dart';
+import '../domain/timer.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/entries_repository.dart';
 import 'repositories/org_repository.dart';
 import 'repositories/platform_check_repository.dart';
 import 'repositories/profile_repository.dart';
+import 'repositories/projects_repository.dart';
 
 /// Used when Firebase has not been configured yet, so the app still starts
 /// (and CI can build it) before `flutterfire configure` has run.
@@ -123,4 +128,135 @@ class UnconfiguredOrgRepository implements OrgRepository {
     required String orgId,
     required String inviteId,
   }) => _fail();
+
+  @override
+  Future<void> setMemberRole({
+    required String orgId,
+    required String uid,
+    required OrgRole role,
+  }) => _fail();
+
+  @override
+  Future<void> setMemberStatus({
+    required String orgId,
+    required String uid,
+    required MemberStatus status,
+  }) => _fail();
+
+  @override
+  Future<void> removeMember({required String orgId, required String uid}) =>
+      _fail();
+
+  @override
+  Future<void> transferOwnership({
+    required String orgId,
+    required String uid,
+  }) => _fail();
+
+  @override
+  Future<void> leaveOrganization(String orgId) => _fail();
+
+  @override
+  Future<void> deleteOrganization({
+    required String orgId,
+    required String confirmName,
+  }) => _fail();
+
+  @override
+  Future<void> deleteAccount() => _fail();
+
+  @override
+  Future<void> updateOrganization({
+    required String orgId,
+    required String name,
+    required OrgSettings settings,
+  }) => _fail();
+
+  @override
+  Stream<List<AuditEntry>> watchAuditLog(String orgId, {int limit = 100}) =>
+      Stream.value(const []);
+}
+
+class UnconfiguredProjectsRepository implements ProjectsRepository {
+  const UnconfiguredProjectsRepository();
+
+  static Future<Never> _fail() =>
+      Future.error(const AppException(AppErrorCode.firebaseNotConfigured));
+
+  @override
+  Stream<List<Project>> watchProjects(String orgId) => Stream.value([]);
+
+  @override
+  String newProjectId(String orgId) => 'local';
+
+  @override
+  Future<void> saveProject(
+    String orgId,
+    Project project, {
+    required bool isNew,
+  }) => _fail();
+
+  @override
+  Stream<Map<String, ProjectRate>> watchRates(String orgId, String uid) =>
+      Stream.value(const {});
+
+  @override
+  Future<void> saveRate(String orgId, String uid, ProjectRate rate) => _fail();
+}
+
+class UnconfiguredEntriesRepository implements EntriesRepository {
+  const UnconfiguredEntriesRepository();
+
+  static Future<Never> _fail() =>
+      Future.error(const AppException(AppErrorCode.firebaseNotConfigured));
+
+  @override
+  Stream<RunningTimer?> watchTimer(String orgId, String uid) =>
+      Stream.value(null);
+
+  @override
+  Future<void> startTimer(
+    String orgId,
+    String uid,
+    RunningTimer timer, {
+    TimeEntry? stopped,
+  }) => _fail();
+
+  @override
+  Future<void> updateTimer(String orgId, String uid, RunningTimer timer) =>
+      _fail();
+
+  @override
+  Future<void> stopTimer(String orgId, String uid, TimeEntry? entry) => _fail();
+
+  @override
+  String newEntryId(String orgId) => 'local';
+
+  @override
+  Future<void> addEntry(String orgId, TimeEntry entry) => _fail();
+
+  @override
+  Future<void> updateEntry(String orgId, TimeEntry entry) => _fail();
+
+  @override
+  Future<void> setDeleted(
+    String orgId,
+    String entryId, {
+    required bool deleted,
+  }) => _fail();
+
+  @override
+  Stream<List<TimeEntry>> watchEntries(
+    String orgId, {
+    required String? uid,
+    required DateTime from,
+    DateTime? to,
+  }) => Stream.value(const []);
+
+  @override
+  Stream<List<MonthSummary>> watchSummaries(
+    String orgId, {
+    required String? uid,
+    List<String>? monthKeys,
+  }) => Stream.value(const []);
 }

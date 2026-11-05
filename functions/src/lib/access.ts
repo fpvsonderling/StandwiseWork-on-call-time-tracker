@@ -40,3 +40,29 @@ export async function requireActiveAdmin(db: Firestore, orgId: string, uid: stri
   }
   return { org, membership };
 }
+
+/**
+ * The caller must be a member (any role, any status) of an existing
+ * organization. Used for leaving and deleting, which also work while the
+ * organization is suspended.
+ */
+export async function requireMember(db: Firestore, orgId: string, uid: string): Promise<OrgAccess> {
+  const [orgSnap, memberSnap] = await Promise.all([
+    db.doc(`orgs/${orgId}`).get(),
+    db.doc(`orgs/${orgId}/members/${uid}`).get(),
+  ]);
+  const membership = memberSnap.data() as Membership | undefined;
+  if (!orgSnap.exists || !membership) {
+    fail('permission-denied', 'not-admin', 'Not a member of this organization.');
+  }
+  return { org: orgSnap.data()!, membership };
+}
+
+/** The caller must be the organization's owner. */
+export async function requireOwner(db: Firestore, orgId: string, uid: string): Promise<OrgAccess> {
+  const access = await requireMember(db, orgId, uid);
+  if (access.membership.role !== 'owner') {
+    fail('permission-denied', 'not-owner', 'Only the owner can do this.');
+  }
+  return access;
+}

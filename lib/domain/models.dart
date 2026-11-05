@@ -78,6 +78,28 @@ class TimeEntry {
 
   int get amountMinor =>
       amountForDuration(rateMinor: rateMinor, durationMin: durationMin);
+
+  /// [clearProject] sets [projectId] to `null` ("No project").
+  TimeEntry copyWith({
+    String? projectId,
+    bool clearProject = false,
+    EntryType? type,
+    int? rateMinor,
+    DateTime? start,
+    DateTime? end,
+    String? description,
+    bool? deleted,
+  }) => TimeEntry(
+    id: id,
+    uid: uid,
+    projectId: clearProject ? null : projectId ?? this.projectId,
+    type: type ?? this.type,
+    rateMinor: rateMinor ?? this.rateMinor,
+    start: start ?? this.start,
+    end: end ?? this.end,
+    description: description ?? this.description,
+    deleted: deleted ?? this.deleted,
+  );
 }
 
 /// The signed-in user's profile (spec §6 `users/{uid}`).
@@ -217,4 +239,27 @@ class InviteCode {
 
   final String code;
   final DateTime expiresAt;
+}
+
+/// `orgs/{orgId}/auditLog/{id}`, written only by functions (spec §6).
+class AuditEntry {
+  const AuditEntry({
+    required this.id,
+    required this.at,
+    required this.actorUid,
+    required this.action,
+    required this.entity,
+    required this.entityId,
+    this.details = const {},
+  });
+
+  final String id;
+  final DateTime at;
+  final String actorUid;
+
+  /// e.g. `member.role`, `invite.create`, `org.create`.
+  final String action;
+  final String entity;
+  final String entityId;
+  final Map<String, Object?> details;
 }

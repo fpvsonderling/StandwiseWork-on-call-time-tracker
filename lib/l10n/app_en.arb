@@ -16,14 +16,6 @@
   "syncSaved": "Saved",
   "syncSaving": "Saving…",
   "syncOffline": "Offline: changes will sync",
-  "comingInStage": "Coming in build stage {stage}.",
-  "@comingInStage": {
-    "placeholders": {
-      "stage": {
-        "type": "int"
-      }
-    }
-  },
   "timerPlaceholderTitle": "Track work and standby time",
   "timerPlaceholderBody": "Start a timer or add hours manually. Every entry is either Work or Standby, with your own hourly rate.",
   "reportsPlaceholderTitle": "Your hours and earnings",
@@ -219,5 +211,311 @@
   },
   "inviteRevoked": "Invite revoked",
   "cancel": "Cancel",
-  "close": "Close"
+  "close": "Close",
+  "save": "Save",
+  "edit": "Edit",
+  "delete": "Delete",
+  "archive": "Archive",
+  "restore": "Restore",
+  "noProject": "No project",
+  "noProjectDeleted": "No project (deleted)",
+  "typeWork": "Work",
+  "typeStandby": "Standby",
+  "perHour": "{currency}/h",
+  "rateInvalid": "Enter an amount like 45 or 45,50",
+  "projectsIntro": "Set your own hourly rate for Work and Standby on each project. New entries use the rate valid when they are created.",
+  "projectsActive": "Projects ({count})",
+  "@projectsActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectsArchived": "Archived ({count})",
+  "@projectsArchived": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectsEmpty": "No projects yet. Your admin adds them; you can still track time without a project.",
+  "projectsEmptyAdmin": "No projects yet. Add one, or track time without a project.",
+  "projectYourTotal": "Your total {time}",
+  "@projectYourTotal": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "projectAdd": "Add project",
+  "projectEdit": "Edit project",
+  "projectName": "Project name",
+  "projectClient": "Client (optional)",
+  "projectColor": "Color",
+  "projectColorN": "Color {n}",
+  "@projectColorN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "projectActions": "Project actions",
+  "projectDeleteTitle": "Delete “{name}”?",
+  "@projectDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "projectDeleteBody": "The project disappears from lists and pickers. Its entries stay and show “No project (deleted)”.",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "add": "Add",
+  "start": "Start",
+  "stop": "Stop",
+  "undo": "Undo",
+  "total": "Total",
+  "rate": "Rate",
+  "project": "Project",
+  "description": "Description",
+  "thisWeek": "This week",
+  "modeTimer": "Timer",
+  "modeManual": "Manual entry",
+  "trackerDescriptionHint": "What are you working on?",
+  "rateNotSet": "No rate set for this project; set it in Projects & rates",
+  "yourRate": "Your rate: {rate}/h",
+  "@yourRate": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "runningFor": "Running for {time}",
+  "@runningFor": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fromTime": "From {time}",
+  "@fromTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "toTime": "To {time}",
+  "@toTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "spanError": "Longer than 24 hours",
+  "weekChartLabel": "Hours per day this week, Work and Standby",
+  "noDescription": "(no description)",
+  "continueEntry": "Continue",
+  "entryDeleted": "Entry deleted",
+  "entryEdit": "Edit entry",
+  "showEarlierDays": "Show earlier days",
+  "timerEmptyTitle": "No hours yet",
+  "timerEmptyBody": "Type what you are working on and press Start, or switch to Manual entry to add hours you already worked.",
+  "sampleLoad": "Load sample data",
+  "sampleRemove": "Remove sample data",
+  "syncTooltip": "Sync status",
+  "writeRejected": "A change was not saved: {reason}",
+  "@writeRejected": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rangeThisWeek": "This week",
+  "rangeLastWeek": "Last week",
+  "rangeThisMonth": "This month",
+  "rangeLastMonth": "Last month",
+  "rangeCustom": "Custom range",
+  "allProjects": "All projects",
+  "archived": "archived",
+  "amount": "Amount",
+  "client": "Client",
+  "share": "Share",
+  "totalDetail": "{hours} h · {count, plural, =1{1 entry} other{{count} entries}}",
+  "@totalDetail": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursAxis": "Hours",
+  "chartLabelDays": "Bar chart of hours per day, stacked by project",
+  "chartLabelWeeks": "Bar chart of hours per week, stacked by project",
+  "weekOf": "Week of {date}",
+  "@weekOf": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "exportCsv": "Export CSV",
+  "reportEmpty": "No entries in this range.",
+  "csvDate": "Date",
+  "csvStart": "Start",
+  "csvEnd": "End",
+  "csvDuration": "Duration (h:mm)",
+  "csvHours": "Hours",
+  "csvType": "Type",
+  "csvEmail": "Email",
+  "errorMemberNotFound": "That member is no longer in the organization.",
+  "errorOwnerProtected": "The owner can't be changed. Transfer ownership first.",
+  "errorSelfChange": "You can't change your own membership here.",
+  "errorNotOwner": "Only the owner can do this.",
+  "errorOwnerMustTransfer": "You own an organization. Transfer ownership or delete the organization first.",
+  "errorNameMismatch": "The name doesn't match.",
+  "teamAdminsOnly": "Team reports are available to admins and the owner.",
+  "teamPeople": "People",
+  "teamEntriesOf": "Entries of {name}",
+  "@teamEntriesOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamSummariesNote": "Team totals update a few seconds after entries are saved.",
+  "formerMember": "Former member",
+  "person": "Person",
+  "everyone": "Everyone",
+  "entries": "Entries",
+  "time": "Time",
+  "duration": "Duration",
+  "exportTeamCsv": "Export team CSV",
+  "saved": "Saved",
+  "memberJoined": "joined {date}",
+  "@memberJoined": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "memberActions": "Member actions",
+  "memberMakeAdmin": "Make admin",
+  "memberMakeEmployee": "Make employee",
+  "memberDisable": "Disable",
+  "memberEnable": "Enable",
+  "memberRemove": "Remove",
+  "memberRemoveTitle": "Remove {name}?",
+  "@memberRemoveTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberRemoveBody": "They lose access to this organization. Their hours stay in your reports.",
+  "transferOwnership": "Transfer ownership",
+  "transferTitle": "Make {name} the owner?",
+  "@transferTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "transferBody": "They get full control, including deleting the organization. You stay as an admin.",
+  "settingsOrgDetails": "Organization settings",
+  "settingsOrgDetailsSubtitle": "Name, currency, timezone, week start, CSV format",
+  "settingsActivity": "Activity log",
+  "orgName": "Company name",
+  "orgCurrency": "Currency",
+  "orgTimezone": "Timezone",
+  "orgTimezoneHelp": "IANA name, e.g. Europe/Warsaw",
+  "orgTimezoneInvalid": "Use a name like Europe/Warsaw",
+  "weekStart": "First day of the week",
+  "use24h": "24-hour clock",
+  "csvFormat": "CSV format",
+  "csvFormatComma": "Comma separator, dot decimal (1.50)",
+  "csvFormatSemicolon": "Semicolon separator, comma decimal (1,50) – European Excel",
+  "csvFormatTab": "Tab separator, dot decimal",
+  "orgLeave": "Leave organization",
+  "orgLeaveTitle": "Leave {name}?",
+  "@orgLeaveTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgLeaveBody": "You lose access to this organization. Your hours stay with the employer. You need a new invite to come back.",
+  "orgDelete": "Delete organization",
+  "orgDeleteTitle": "Delete {name}?",
+  "@orgDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgDeleteBody": "All projects, entries, members and reports of this organization are deleted for everyone. This cannot be undone.",
+  "orgDeleteTypeName": "Type the organization name",
+  "accountDelete": "Delete account",
+  "accountDeleteTitle": "Delete your account?",
+  "accountDeleteBody": "Your profile and memberships are deleted and you are signed out. Hours you tracked stay with your employers without your name or email. This cannot be undone.",
+  "auditEmpty": "No activity yet.",
+  "auditOrgCreate": "Organization created",
+  "auditTransfer": "Ownership transferred to {name}",
+  "@auditTransfer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "auditInviteCreate": "Invited {email}",
+  "@auditInviteCreate": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "auditInviteResend": "Invite resent to {email}",
+  "@auditInviteResend": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "auditInviteRevoke": "Invite to {email} revoked",
+  "@auditInviteRevoke": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "auditJoin": "{name} joined",
+  "auditRole": "{name} is now {role}",
+  "auditDisable": "{name} disabled",
+  "auditEnable": "{name} enabled",
+  "auditRemove": "{name} removed",
+  "auditLeave": "{name} left",
+  "auditAccountDelete": "A member deleted their account"
 }

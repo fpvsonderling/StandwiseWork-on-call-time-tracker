@@ -5,6 +5,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
+- Stage 7: Team view for admins (totals, people table, one person's entries, chart, projects, team CSV); member actions (make admin/employee, disable, enable, remove, transfer ownership); organization settings (name, currency, timezone, week start, 24-hour clock, CSV format); activity log; leave organization, delete organization, delete account.
+- Cloud Functions `setMemberRole`, `setMemberStatus`, `removeMember`, `transferOwnership`, `leaveOrganization`, `deleteOrganization`, `deleteAccount`; `onEntryWritten` keeps monthly summaries; `purgeDeletedEntries` (daily) removes deleted entries after 30 days.
+- Stage 6: My reports with ranges (this/last week and month, custom), project filter, totals, daily chart, project table and CSV export.
+- Stage 5: timer (start, stop, switch, continue, at most one per person), manual entries across midnight, edit, delete with undo, week summary, sync status in the header; works offline.
+- Stage 4: projects with colors, archive/restore/delete, personal work and standby rates per project (and for "No project"), sample data.
 - Stage 3: create an organization (30-day trial) or join one with an invite code; organization switcher in the header; read-only banner for suspended organizations; Settings → Members and invites for admins (invite by email, resend, revoke, copy code).
 - Cloud Functions `createOrganization`, `createInvite`, `resendInvite`, `revokeInvite`, `acceptInvite`; invite emails queued for the Trigger Email extension.
 - Stage 2: welcome screen with Google sign-in, required "Your name" screen (prefilled from the Google name), Settings → Profile and sign out, router redirects for sign-in and profile.

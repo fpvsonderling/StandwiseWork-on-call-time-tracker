@@ -64,7 +64,7 @@ void main() {
 
     expect(profiles.saved.single.first, 'Anna Maria');
     expect(profiles.saved.single.exists, isFalse);
-    expect(find.text('Track work and standby time'), findsOneWidget);
+    expect(find.text('What are you working on?'), findsOneWidget);
   });
 
   testWidgets('validates first and last name', (tester) async {
@@ -136,7 +136,7 @@ void main() {
     });
     await tester.pumpWidget(_app(auth, profiles));
     await tester.pumpAndSettle();
-    expect(find.text('Track work and standby time'), findsOneWidget);
+    expect(find.text('What are you working on?'), findsOneWidget);
 
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();

@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/unit/*.test.ts\"",
-    "test:emulator": "firebase emulators:exec --only firestore --project demo-standwise --config ../firebase.json \"node --test test/emulator/*.test.ts\"",
+    "test:emulator": "firebase emulators:exec --only firestore --project demo-standwise --config ../firebase.json \"node --test --test-concurrency=1 test/emulator/*.test.ts\"",
     "serve": "npm run build && firebase emulators:start --config ../firebase.json"
   },
   "dependencies": {

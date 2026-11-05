@@ -2,19 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../app/l10n.dart';
 
-/// Stage 1 stand-ins for the tabs built in later stages.
+/// What each tab does, shown when there is no organization to work in
+/// (Firebase not configured).
 class _Placeholder extends StatelessWidget {
   const _Placeholder({
     required this.icon,
     required this.title,
     required this.body,
-    required this.stage,
   });
 
   final IconData icon;
   final String title;
   final String body;
-  final int stage;
 
   @override
   Widget build(BuildContext context) {
@@ -40,13 +39,6 @@ class _Placeholder extends StatelessWidget {
                 style: theme.textTheme.bodyLarge,
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
-              Text(
-                context.l10n.comingInStage(stage),
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
-              ),
             ],
           ),
         ),
@@ -63,7 +55,6 @@ class TimerPlaceholder extends StatelessWidget {
     icon: Icons.timer_outlined,
     title: context.l10n.timerPlaceholderTitle,
     body: context.l10n.timerPlaceholderBody,
-    stage: 5,
   );
 }
 
@@ -75,7 +66,6 @@ class ReportsPlaceholder extends StatelessWidget {
     icon: Icons.bar_chart_outlined,
     title: context.l10n.reportsPlaceholderTitle,
     body: context.l10n.reportsPlaceholderBody,
-    stage: 6,
   );
 }
 
@@ -87,7 +77,6 @@ class ProjectsPlaceholder extends StatelessWidget {
     icon: Icons.folder_outlined,
     title: context.l10n.projectsPlaceholderTitle,
     body: context.l10n.projectsPlaceholderBody,
-    stage: 4,
   );
 }
 
@@ -99,6 +88,5 @@ class TeamPlaceholder extends StatelessWidget {
     icon: Icons.groups_outlined,
     title: context.l10n.teamPlaceholderTitle,
     body: context.l10n.teamPlaceholderBody,
-    stage: 7,
   );
 }
