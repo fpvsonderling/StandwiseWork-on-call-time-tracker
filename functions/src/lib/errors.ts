@@ -15,7 +15,13 @@ export type FailureReason =
   | 'invite-not-found'
   | 'invite-expired'
   | 'invite-used'
-  | 'invite-email-mismatch';
+  | 'invite-email-mismatch'
+  | 'member-not-found'
+  | 'owner-protected'
+  | 'self-change'
+  | 'not-owner'
+  | 'owner-must-transfer'
+  | 'name-mismatch';
 
 export function fail(code: FunctionsErrorCode, reason: FailureReason, message: string): never {
   throw new HttpsError(code, message, { reason });
