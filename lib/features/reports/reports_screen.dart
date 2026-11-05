@@ -119,7 +119,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
                 child: ReportChart(
-                  entries: entries,
+                  cells: entries.map(cellOf).toList(),
                   range: range.range,
                   projects: projects,
                   weekStart: ctx.settings.weekStart,
@@ -129,7 +129,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             const SizedBox(height: 16),
             Card(
               child: ProjectTable(
-                entries: entries,
+                cells: entries.map(cellOf).toList(),
                 projects: projects,
                 currency: ctx.currency,
               ),

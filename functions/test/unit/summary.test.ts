@@ -39,8 +39,8 @@ describe('summaries', () => {
       { w: days['02'].workMin, s: days['02'].standbyMin, a: days['02'].amountMinor },
       { w: 90, s: 60, a: 10500 },
     );
-    assert.deepEqual(days['02'].byProject.p1, { workMin: 90, standbyMin: 0, amountMinor: 9000 });
-    assert.deepEqual(days['02'].byProject[NO_PROJECT], { workMin: 0, standbyMin: 60, amountMinor: 1500 });
+    assert.deepEqual(days['02'].byProject.p1, { workMin: 90, standbyMin: 0, amountMinor: 9000, count: 1 });
+    assert.deepEqual(days['02'].byProject[NO_PROJECT], { workMin: 0, standbyMin: 60, amountMinor: 1500, count: 1 });
   });
 
   it('a moved entry touches both months', () => {

@@ -6,7 +6,6 @@ import '../../app/l10n.dart';
 import '../../app/theme.dart';
 import '../../domain/date_ranges.dart';
 import '../../domain/durations.dart';
-import '../../domain/models.dart';
 import '../../domain/projects.dart';
 import '../../domain/reports.dart';
 import '../common/format.dart';
@@ -225,13 +224,13 @@ class ReportTiles extends StatelessWidget {
 class ReportChart extends StatelessWidget {
   const ReportChart({
     super.key,
-    required this.entries,
+    required this.cells,
     required this.range,
     required this.projects,
     required this.weekStart,
   });
 
-  final List<TimeEntry> entries;
+  final List<ReportCell> cells;
   final DateRange range;
   final Map<String, Project> projects;
   final int weekStart;
@@ -240,7 +239,7 @@ class ReportChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
-    final buckets = chartBuckets(entries, range, weekStart: weekStart);
+    final buckets = chartBuckets(cells, range, weekStart: weekStart);
     final weekly = useWeeklyBuckets(range);
     final maxMin = buckets.fold(0, (m, b) => b.totalMin > m ? b.totalMin : m);
     final maxY = ((maxMin / 60).ceil()).clamp(1, 1 << 20).toDouble();
@@ -370,20 +369,20 @@ class ReportChart extends StatelessWidget {
 class ProjectTable extends StatelessWidget {
   const ProjectTable({
     super.key,
-    required this.entries,
+    required this.cells,
     required this.projects,
     required this.currency,
   });
 
-  final List<TimeEntry> entries;
+  final List<ReportCell> cells;
   final Map<String, Project> projects;
   final String currency;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final rows = projectRows(entries);
-    final all = totalsOf(entries);
+    final rows = projectRows(cells);
+    final all = totalsOfCells(cells);
     const num = TextStyle(fontFeatures: tabularFigures);
     String share(int min) => all.totalMin == 0
         ? '–'

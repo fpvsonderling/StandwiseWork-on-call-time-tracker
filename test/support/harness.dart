@@ -32,11 +32,21 @@ Future<void> pumpApp(
   List<Membership> otherMembers = const [],
   List<Override> overrides = const [],
   Size size = const Size(500, 1000),
+  void Function(FakeOrgRepository orgs)? onOrgs,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final profiles = FakeProfileRepository({'u1': testProfile});
+  final orgs = FakeOrgRepository(
+    profiles: profiles,
+    memberships: [
+      membershipOf(org.id, role: role),
+      ...otherMembers,
+    ],
+    orgs: {org.id: org},
+  );
+  onOrgs?.call(orgs);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -48,16 +58,7 @@ Future<void> pumpApp(
           FakeAuthRepository(signedIn: testUser),
         ),
         profileRepositoryProvider.overrideWithValue(profiles),
-        orgRepositoryProvider.overrideWithValue(
-          FakeOrgRepository(
-            profiles: profiles,
-            memberships: [
-              membershipOf(org.id, role: role),
-              ...otherMembers,
-            ],
-            orgs: {org.id: org},
-          ),
-        ),
+        orgRepositoryProvider.overrideWithValue(orgs),
         ...overrides,
       ],
       child: const StandwiseApp(),

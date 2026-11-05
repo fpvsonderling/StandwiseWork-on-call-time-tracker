@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/errors.dart';
 
 import '../../domain/models.dart';
 import '../repositories/org_repository.dart';
 import 'callable_client.dart';
+import 'firestore_errors.dart';
 
 class FirebaseOrgRepository implements OrgRepository {
   FirebaseOrgRepository(this._db, this._functions);
@@ -136,4 +141,105 @@ class FirebaseOrgRepository implements OrgRepository {
     required String orgId,
     required String inviteId,
   }) => _functions.call('revokeInvite', {'orgId': orgId, 'inviteId': inviteId});
+
+  @override
+  Future<void> setMemberRole({
+    required String orgId,
+    required String uid,
+    required OrgRole role,
+  }) => _functions.call('setMemberRole', {
+    'orgId': orgId,
+    'uid': uid,
+    'role': role.wire,
+  });
+
+  @override
+  Future<void> setMemberStatus({
+    required String orgId,
+    required String uid,
+    required MemberStatus status,
+  }) => _functions.call('setMemberStatus', {
+    'orgId': orgId,
+    'uid': uid,
+    'status': status.wire,
+  });
+
+  @override
+  Future<void> removeMember({required String orgId, required String uid}) =>
+      _functions.call('removeMember', {'orgId': orgId, 'uid': uid});
+
+  @override
+  Future<void> transferOwnership({
+    required String orgId,
+    required String uid,
+  }) => _functions.call('transferOwnership', {'orgId': orgId, 'uid': uid});
+
+  @override
+  Future<void> leaveOrganization(String orgId) =>
+      _functions.call('leaveOrganization', {'orgId': orgId});
+
+  @override
+  Future<void> deleteOrganization({
+    required String orgId,
+    required String confirmName,
+  }) => _functions.call('deleteOrganization', {
+    'orgId': orgId,
+    'confirmName': confirmName,
+  });
+
+  @override
+  Future<void> deleteAccount() => _functions.call('deleteAccount', {});
+
+  @override
+  Future<void> updateOrganization({
+    required String orgId,
+    required String name,
+    required OrgSettings settings,
+  }) async {
+    final write = _db.collection('orgs').doc(orgId).update({
+      'name': name.trim(),
+      'settings': {
+        'currency': settings.currency,
+        'timezone': settings.timezone,
+        'weekStart': settings.weekStart,
+        'use24h': settings.use24h,
+        'csvSeparator': settings.csvSeparator,
+        'csvDecimal': settings.csvDecimal,
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    try {
+      // Settings are rare: wait for the server so a rejected change shows.
+      await write.timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      throw const AppException(AppErrorCode.network);
+    } catch (e) {
+      throw appErrorFrom(e);
+    }
+  }
+
+  @override
+  Stream<List<AuditEntry>> watchAuditLog(String orgId, {int limit = 100}) => _db
+      .collection('orgs')
+      .doc(orgId)
+      .collection('auditLog')
+      .orderBy('at', descending: true)
+      .limit(limit)
+      .snapshots()
+      .map(
+        (s) => s.docs.map((d) {
+          final m = d.data();
+          return AuditEntry(
+            id: d.id,
+            at: (m['at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            actorUid: m['actorUid'] as String? ?? '',
+            action: m['action'] as String? ?? '',
+            entity: m['entity'] as String? ?? '',
+            entityId: m['entityId'] as String? ?? '',
+            details: Map<String, Object?>.from(
+              m['details'] as Map? ?? const {},
+            ),
+          );
+        }).toList(),
+      );
 }

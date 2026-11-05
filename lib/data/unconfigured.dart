@@ -2,6 +2,7 @@ import '../core/auth/google_tokens.dart';
 import '../core/errors.dart';
 import '../domain/models.dart';
 import '../domain/projects.dart';
+import '../domain/summaries.dart';
 import '../domain/timer.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/entries_repository.dart';
@@ -127,6 +128,53 @@ class UnconfiguredOrgRepository implements OrgRepository {
     required String orgId,
     required String inviteId,
   }) => _fail();
+
+  @override
+  Future<void> setMemberRole({
+    required String orgId,
+    required String uid,
+    required OrgRole role,
+  }) => _fail();
+
+  @override
+  Future<void> setMemberStatus({
+    required String orgId,
+    required String uid,
+    required MemberStatus status,
+  }) => _fail();
+
+  @override
+  Future<void> removeMember({required String orgId, required String uid}) =>
+      _fail();
+
+  @override
+  Future<void> transferOwnership({
+    required String orgId,
+    required String uid,
+  }) => _fail();
+
+  @override
+  Future<void> leaveOrganization(String orgId) => _fail();
+
+  @override
+  Future<void> deleteOrganization({
+    required String orgId,
+    required String confirmName,
+  }) => _fail();
+
+  @override
+  Future<void> deleteAccount() => _fail();
+
+  @override
+  Future<void> updateOrganization({
+    required String orgId,
+    required String name,
+    required OrgSettings settings,
+  }) => _fail();
+
+  @override
+  Stream<List<AuditEntry>> watchAuditLog(String orgId, {int limit = 100}) =>
+      Stream.value(const []);
 }
 
 class UnconfiguredProjectsRepository implements ProjectsRepository {
@@ -203,5 +251,12 @@ class UnconfiguredEntriesRepository implements EntriesRepository {
     required String? uid,
     required DateTime from,
     DateTime? to,
+  }) => Stream.value(const []);
+
+  @override
+  Stream<List<MonthSummary>> watchSummaries(
+    String orgId, {
+    required String? uid,
+    List<String>? monthKeys,
   }) => Stream.value(const []);
 }

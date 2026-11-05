@@ -5,21 +5,19 @@ import 'package:intl/intl.dart';
 
 import '../../app/l10n.dart';
 import '../../app/session.dart';
+import '../../app/work_state.dart';
 import '../../core/errors.dart';
 import '../../data/providers.dart';
 import '../../domain/models.dart';
+import '../common/widgets.dart' show confirm, showError;
 import 'organization_choice_screen.dart' show RoleBadge;
-
-final _membersProvider = StreamProvider.family<List<Membership>, String>(
-  (ref, orgId) => ref.watch(orgRepositoryProvider).watchMembers(orgId),
-);
 
 final _invitesProvider = StreamProvider.family<List<Invite>, String>(
   (ref, orgId) => ref.watch(orgRepositoryProvider).watchPendingInvites(orgId),
 );
 
-/// Members and invites for admins (spec §5.6). Role changes, disabling and
-/// removing members come in stage 7.
+/// Members and invites for admins (spec §5.6): invite, resend, revoke;
+/// change roles, disable/enable, remove, transfer ownership.
 class MembersScreen extends ConsumerWidget {
   const MembersScreen({super.key});
 
@@ -34,7 +32,7 @@ class MembersScreen extends ConsumerWidget {
       );
     }
     final orgId = session.orgId;
-    final members = ref.watch(_membersProvider(orgId)).value ?? const [];
+    final members = ref.watch(orgMembersProvider(orgId)).value ?? const [];
     final invites = ref.watch(_invitesProvider(orgId)).value ?? const [];
     final sorted = [...members]
       ..sort(
@@ -91,9 +89,27 @@ class MembersScreen extends ConsumerWidget {
                     : m.displayName,
               ),
               subtitle: Text(
-                [m.email, if (!m.isActive) l10n.memberDisabled].join(' · '),
+                [
+                  m.email,
+                  if (m.joinedAt != null)
+                    l10n.memberJoined(date.format(m.joinedAt!)),
+                  if (!m.isActive) l10n.memberDisabled,
+                ].join(' · '),
               ),
-              trailing: RoleBadge(role: m.role),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RoleBadge(role: m.role),
+                  if (m.uid != session.user.uid &&
+                      (m.role != OrgRole.owner ||
+                          session.membership.role == OrgRole.owner))
+                    _MemberMenu(
+                      orgId: orgId,
+                      member: m,
+                      callerIsOwner: session.membership.role == OrgRole.owner,
+                    ),
+                ],
+              ),
             ),
         ],
       ),
@@ -331,4 +347,146 @@ class _Header extends StatelessWidget {
       ),
     ),
   );
+}
+
+enum _MemberAction {
+  makeAdmin,
+  makeEmployee,
+  disable,
+  enable,
+  remove,
+  transfer,
+}
+
+/// Per-member actions. The owner can't be changed here (spec §5.6).
+class _MemberMenu extends ConsumerStatefulWidget {
+  const _MemberMenu({
+    required this.orgId,
+    required this.member,
+    required this.callerIsOwner,
+  });
+
+  final String orgId;
+  final Membership member;
+  final bool callerIsOwner;
+
+  @override
+  ConsumerState<_MemberMenu> createState() => _MemberMenuState();
+}
+
+class _MemberMenuState extends ConsumerState<_MemberMenu> {
+  bool _busy = false;
+
+  Future<void> _run(_MemberAction a) async {
+    final l10n = context.l10n;
+    final repo = ref.read(orgRepositoryProvider);
+    final m = widget.member;
+    final orgId = widget.orgId;
+    if (a == _MemberAction.remove &&
+        !await confirm(
+          context,
+          title: l10n.memberRemoveTitle(m.displayName),
+          body: l10n.memberRemoveBody,
+          action: l10n.memberRemove,
+        )) {
+      return;
+    }
+    if (a == _MemberAction.transfer &&
+        (!mounted ||
+            !await confirm(
+              context,
+              title: l10n.transferTitle(m.displayName),
+              body: l10n.transferBody,
+              action: l10n.transferOwnership,
+            ))) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await switch (a) {
+        _MemberAction.makeAdmin => repo.setMemberRole(
+          orgId: orgId,
+          uid: m.uid,
+          role: OrgRole.admin,
+        ),
+        _MemberAction.makeEmployee => repo.setMemberRole(
+          orgId: orgId,
+          uid: m.uid,
+          role: OrgRole.employee,
+        ),
+        _MemberAction.disable => repo.setMemberStatus(
+          orgId: orgId,
+          uid: m.uid,
+          status: MemberStatus.disabled,
+        ),
+        _MemberAction.enable => repo.setMemberStatus(
+          orgId: orgId,
+          uid: m.uid,
+          status: MemberStatus.active,
+        ),
+        _MemberAction.remove => repo.removeMember(orgId: orgId, uid: m.uid),
+        _MemberAction.transfer => repo.transferOwnership(
+          orgId: orgId,
+          uid: m.uid,
+        ),
+      };
+    } catch (e) {
+      if (mounted) showError(context, l10n.error(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final m = widget.member;
+    if (_busy) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    final isOwner = m.role == OrgRole.owner;
+    return PopupMenuButton<_MemberAction>(
+      tooltip: l10n.memberActions,
+      onSelected: _run,
+      itemBuilder: (_) => [
+        if (!isOwner && m.role == OrgRole.employee)
+          PopupMenuItem(
+            value: _MemberAction.makeAdmin,
+            child: Text(l10n.memberMakeAdmin),
+          ),
+        if (!isOwner && m.role == OrgRole.admin)
+          PopupMenuItem(
+            value: _MemberAction.makeEmployee,
+            child: Text(l10n.memberMakeEmployee),
+          ),
+        if (!isOwner && m.isActive)
+          PopupMenuItem(
+            value: _MemberAction.disable,
+            child: Text(l10n.memberDisable),
+          ),
+        if (!isOwner && !m.isActive)
+          PopupMenuItem(
+            value: _MemberAction.enable,
+            child: Text(l10n.memberEnable),
+          ),
+        if (widget.callerIsOwner && m.isActive && !isOwner)
+          PopupMenuItem(
+            value: _MemberAction.transfer,
+            child: Text(l10n.transferOwnership),
+          ),
+        if (!isOwner)
+          PopupMenuItem(
+            value: _MemberAction.remove,
+            child: Text(l10n.memberRemove),
+          ),
+      ],
+    );
+  }
 }

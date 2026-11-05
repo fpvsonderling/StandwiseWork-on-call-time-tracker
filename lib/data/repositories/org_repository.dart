@@ -37,4 +37,48 @@ abstract interface class OrgRepository {
   });
 
   Future<void> revokeInvite({required String orgId, required String inviteId});
+
+  // ----- Stage 7: members, organization, account -----
+
+  /// Admins: change another member's role (not the owner's).
+  Future<void> setMemberRole({
+    required String orgId,
+    required String uid,
+    required OrgRole role,
+  });
+
+  /// Admins: disable or re-enable another member.
+  Future<void> setMemberStatus({
+    required String orgId,
+    required String uid,
+    required MemberStatus status,
+  });
+
+  /// Admins: remove another member (their hours stay).
+  Future<void> removeMember({required String orgId, required String uid});
+
+  /// Owner: make [uid] the owner; the caller becomes admin.
+  Future<void> transferOwnership({required String orgId, required String uid});
+
+  /// Members other than the owner.
+  Future<void> leaveOrganization(String orgId);
+
+  /// Owner, with the organization's name typed again.
+  Future<void> deleteOrganization({
+    required String orgId,
+    required String confirmName,
+  });
+
+  /// Deletes the signed-in user's account (spec §4.5).
+  Future<void> deleteAccount();
+
+  /// Admins: name and settings (a plain Firestore write, rules-checked).
+  Future<void> updateOrganization({
+    required String orgId,
+    required String name,
+    required OrgSettings settings,
+  });
+
+  /// Admins: latest activity first.
+  Stream<List<AuditEntry>> watchAuditLog(String orgId, {int limit = 100});
 }

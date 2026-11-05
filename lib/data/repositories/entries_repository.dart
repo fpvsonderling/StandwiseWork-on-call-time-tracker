@@ -1,4 +1,5 @@
 import '../../domain/models.dart';
+import '../../domain/summaries.dart';
 import '../../domain/timer.dart';
 
 /// Time entries and the running timer (spec §5.1, §6). Plain Firestore
@@ -44,5 +45,14 @@ abstract interface class EntriesRepository {
     required String? uid,
     required DateTime from,
     DateTime? to,
+  });
+
+  /// Monthly summaries. [uid] limits them to one person (required for
+  /// employees); [monthKeys] (`YYYY-MM`, sorted) to the months from the first
+  /// to the last key; `null` reads all months.
+  Stream<List<MonthSummary>> watchSummaries(
+    String orgId, {
+    required String? uid,
+    List<String>? monthKeys,
   });
 }

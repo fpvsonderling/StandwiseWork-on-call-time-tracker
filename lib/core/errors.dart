@@ -18,6 +18,12 @@ enum AppErrorCode {
   inviteExpired,
   inviteUsed,
   inviteEmailMismatch,
+  memberNotFound,
+  ownerProtected,
+  selfChange,
+  notOwner,
+  ownerMustTransfer,
+  nameMismatch,
   unknown,
 }
 

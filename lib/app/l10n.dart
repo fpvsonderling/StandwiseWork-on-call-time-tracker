@@ -31,6 +31,12 @@ extension AppErrorText on AppLocalizations {
       AppErrorCode.inviteExpired => errorInviteExpired,
       AppErrorCode.inviteUsed => errorInviteUsed,
       AppErrorCode.inviteEmailMismatch => errorInviteEmailMismatch,
+      AppErrorCode.memberNotFound => errorMemberNotFound,
+      AppErrorCode.ownerProtected => errorOwnerProtected,
+      AppErrorCode.selfChange => errorSelfChange,
+      AppErrorCode.notOwner => errorNotOwner,
+      AppErrorCode.ownerMustTransfer => errorOwnerMustTransfer,
+      AppErrorCode.nameMismatch => errorNameMismatch,
       AppErrorCode.unknown => errorUnknown,
     };
   }

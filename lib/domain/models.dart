@@ -240,3 +240,26 @@ class InviteCode {
   final String code;
   final DateTime expiresAt;
 }
+
+/// `orgs/{orgId}/auditLog/{id}`, written only by functions (spec §6).
+class AuditEntry {
+  const AuditEntry({
+    required this.id,
+    required this.at,
+    required this.actorUid,
+    required this.action,
+    required this.entity,
+    required this.entityId,
+    this.details = const {},
+  });
+
+  final String id;
+  final DateTime at;
+  final String actorUid;
+
+  /// e.g. `member.role`, `invite.create`, `org.create`.
+  final String action;
+  final String entity;
+  final String entityId;
+  final Map<String, Object?> details;
+}

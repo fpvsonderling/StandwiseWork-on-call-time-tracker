@@ -32,16 +32,28 @@ class AppShell extends ConsumerWidget {
           SnackBar(content: Text(l10n.writeRejected(l10n.error(e)))),
         );
     });
-    final destinations = [
-      (Icons.timer_outlined, Icons.timer, l10n.navTimer),
-      (Icons.bar_chart_outlined, Icons.bar_chart, l10n.navReports),
-      (Icons.folder_outlined, Icons.folder, l10n.navProjects),
-      (Icons.groups_outlined, Icons.groups, l10n.navTeam),
-      (Icons.settings_outlined, Icons.settings, l10n.navSettings),
+    // Team is for admins and the owner (spec §5); branch 3 stays in the
+    // router, employees just don't get a button for it.
+    final showTeam = ref.watch(workContextProvider)?.isAdmin ?? !firebaseReady;
+    final all = [
+      (0, Icons.timer_outlined, Icons.timer, l10n.navTimer),
+      (1, Icons.bar_chart_outlined, Icons.bar_chart, l10n.navReports),
+      (2, Icons.folder_outlined, Icons.folder, l10n.navProjects),
+      (3, Icons.groups_outlined, Icons.groups, l10n.navTeam),
+      (4, Icons.settings_outlined, Icons.settings, l10n.navSettings),
     ];
+    final destinations = [
+      for (final d in all)
+        if (d.$1 != 3 || showTeam) d,
+    ];
+    final selected = destinations
+        .indexWhere((d) => d.$1 == shell.currentIndex)
+        .clamp(0, destinations.length - 1);
 
-    void go(int i) =>
-        shell.goBranch(i, initialLocation: i == shell.currentIndex);
+    void go(int i) {
+      final branch = destinations[i].$1;
+      shell.goBranch(branch, initialLocation: branch == shell.currentIndex);
+    }
 
     final body = Column(
       children: [
@@ -73,14 +85,15 @@ class AppShell extends ConsumerWidget {
               ? Row(
                   children: [
                     NavigationRail(
-                      selectedIndex: shell.currentIndex,
+                      selectedIndex: selected,
                       onDestinationSelected: go,
                       labelType: NavigationRailLabelType.all,
                       destinations: [
-                        for (final (icon, selected, label) in destinations)
+                        for (final (_, icon, selectedIcon, label)
+                            in destinations)
                           NavigationRailDestination(
                             icon: Icon(icon),
-                            selectedIcon: Icon(selected),
+                            selectedIcon: Icon(selectedIcon),
                             label: Text(label),
                           ),
                       ],
@@ -93,13 +106,13 @@ class AppShell extends ConsumerWidget {
           bottomNavigationBar: wide
               ? null
               : NavigationBar(
-                  selectedIndex: shell.currentIndex,
+                  selectedIndex: selected,
                   onDestinationSelected: go,
                   destinations: [
-                    for (final (icon, selected, label) in destinations)
+                    for (final (_, icon, selectedIcon, label) in destinations)
                       NavigationDestination(
                         icon: Icon(icon),
-                        selectedIcon: Icon(selected),
+                        selectedIcon: Icon(selectedIcon),
                         label: label,
                       ),
                   ],

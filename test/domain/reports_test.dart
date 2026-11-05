@@ -99,20 +99,22 @@ void main() {
       'b',
     );
     expect(entries.where((e) => matchesProject(e, 'p1')).length, 2);
-    final rows = projectRows(entries);
+    final rows = projectRows(entries.map(cellOf));
     expect(rows.map((r) => r.projectId), [null, 'p1']);
     expect(rows.last.totals.totalMin, 90);
   });
 
   test('chart uses days, or weeks above 62 days', () {
     final daily = chartBuckets([
-      _e('a', DateTime(2026, 11, 3, 8), 60, project: 'p1'),
+      cellOf(_e('a', DateTime(2026, 11, 3, 8), 60, project: 'p1')),
     ], monthRange(DateTime(2026, 11)));
     expect(daily.length, 30);
     expect(daily[2].minutes, {'p1': 60});
 
     final range = customRange(DateTime(2026, 1, 1), DateTime(2026, 6, 30));
-    final weekly = chartBuckets([_e('a', DateTime(2026, 1, 7), 60)], range);
+    final weekly = chartBuckets([
+      cellOf(_e('a', DateTime(2026, 1, 7), 60)),
+    ], range);
     expect(weekly.first.start, DateTime(2025, 12, 29));
     expect(weekly.first.totalMin, 0);
     expect(weekly[1].totalMin, 60);

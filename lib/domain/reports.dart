@@ -30,6 +30,13 @@ class Totals {
     count++;
   }
 
+  void addCell(ReportCell c) {
+    workMin += c.workMin;
+    standbyMin += c.standbyMin;
+    amountMinor += c.amountMinor;
+    count += c.count;
+  }
+
   void addTotals(Totals o) {
     workMin += o.workMin;
     standbyMin += o.standbyMin;
@@ -42,6 +49,68 @@ Totals totalsOf(Iterable<TimeEntry> entries) {
   final t = Totals();
   entries.forEach(t.add);
   return t;
+}
+
+Totals totalsOfCells(Iterable<ReportCell> cells) {
+  final t = Totals();
+  cells.forEach(t.addCell);
+  return t;
+}
+
+/// Pre-aggregated time of one person, day and project: one entry, or one
+/// project bucket of a monthly summary (spec §5.5). Reports, the chart and
+/// the tables are built from cells, so the same code serves My reports
+/// (entries) and Team (summaries).
+class ReportCell {
+  const ReportCell({
+    required this.uid,
+    required this.day,
+    required this.projectId,
+    this.workMin = 0,
+    this.standbyMin = 0,
+    this.amountMinor = 0,
+    this.count = 0,
+  });
+
+  final String uid;
+
+  /// Local midnight of the day the time counts on.
+  final DateTime day;
+
+  /// `null` for no project.
+  final String? projectId;
+  final int workMin;
+  final int standbyMin;
+  final int amountMinor;
+  final int count;
+
+  int get totalMin => workMin + standbyMin;
+}
+
+ReportCell cellOf(TimeEntry e) => ReportCell(
+  uid: e.uid,
+  day: dateOnly(e.start),
+  projectId: e.projectId,
+  workMin: e.type == EntryType.work ? e.durationMin : 0,
+  standbyMin: e.type == EntryType.standby ? e.durationMin : 0,
+  amountMinor: e.amountMinor,
+  count: 1,
+);
+
+/// Project filter for cells (see [matchesProject]).
+bool cellMatchesProject(ReportCell c, String? filter) {
+  if (filter == null) return true;
+  if (filter == noProjectKey) return c.projectId == null;
+  return c.projectId == filter;
+}
+
+/// Totals per person.
+Map<String, Totals> totalsByPerson(Iterable<ReportCell> cells) {
+  final m = <String, Totals>{};
+  for (final c in cells) {
+    m.putIfAbsent(c.uid, Totals.new).addCell(c);
+  }
+  return m;
 }
 
 /// Entries of one day, newest first.
@@ -115,10 +184,13 @@ class ProjectRow {
 }
 
 /// Project table rows, largest total first.
-List<ProjectRow> projectRows(Iterable<TimeEntry> entries) {
+List<ProjectRow> projectRows(Iterable<ReportCell> cells) {
   final rows = <String?, ProjectRow>{};
-  for (final e in entries) {
-    rows.putIfAbsent(e.projectId, () => ProjectRow(e.projectId)).totals.add(e);
+  for (final c in cells) {
+    rows
+        .putIfAbsent(c.projectId, () => ProjectRow(c.projectId))
+        .totals
+        .addCell(c);
   }
   return rows.values.toList()
     ..sort((a, b) => b.totals.totalMin.compareTo(a.totals.totalMin));
@@ -138,7 +210,7 @@ class ChartBucket {
 
 /// Bars for [range]: one per day, or one per week above 62 days (spec §5.3).
 List<ChartBucket> chartBuckets(
-  Iterable<TimeEntry> entries,
+  Iterable<ReportCell> cells,
   DateRange range, {
   int weekStart = DateTime.monday,
 }) {
@@ -151,13 +223,11 @@ List<ChartBucket> chartBuckets(
     buckets.add(ChartBucket(cursor));
     cursor = DateTime(cursor.year, cursor.month, cursor.day + (weekly ? 7 : 1));
   }
-  for (final e in entries) {
-    if (!range.contains(e.start)) continue;
-    final key = weekly
-        ? startOfWeek(e.start, weekStart: weekStart)
-        : dateOnly(e.start);
+  for (final c in cells) {
+    if (!range.contains(c.day)) continue;
+    final key = weekly ? startOfWeek(c.day, weekStart: weekStart) : c.day;
     final b = buckets.firstWhere((b) => b.start == key);
-    b.minutes[e.projectId] = (b.minutes[e.projectId] ?? 0) + e.durationMin;
+    b.minutes[c.projectId] = (b.minutes[c.projectId] ?? 0) + c.totalMin;
   }
   return buckets;
 }

@@ -380,5 +380,142 @@
   "csvDuration": "Duration (h:mm)",
   "csvHours": "Hours",
   "csvType": "Type",
-  "csvEmail": "Email"
+  "csvEmail": "Email",
+  "errorMemberNotFound": "That member is no longer in the organization.",
+  "errorOwnerProtected": "The owner can't be changed. Transfer ownership first.",
+  "errorSelfChange": "You can't change your own membership here.",
+  "errorNotOwner": "Only the owner can do this.",
+  "errorOwnerMustTransfer": "You own an organization. Transfer ownership or delete the organization first.",
+  "errorNameMismatch": "The name doesn't match.",
+  "teamAdminsOnly": "Team reports are available to admins and the owner.",
+  "teamPeople": "People",
+  "teamEntriesOf": "Entries of {name}",
+  "@teamEntriesOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamSummariesNote": "Team totals update a few seconds after entries are saved.",
+  "formerMember": "Former member",
+  "person": "Person",
+  "everyone": "Everyone",
+  "entries": "Entries",
+  "time": "Time",
+  "duration": "Duration",
+  "exportTeamCsv": "Export team CSV",
+  "saved": "Saved",
+  "memberJoined": "joined {date}",
+  "@memberJoined": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "memberActions": "Member actions",
+  "memberMakeAdmin": "Make admin",
+  "memberMakeEmployee": "Make employee",
+  "memberDisable": "Disable",
+  "memberEnable": "Enable",
+  "memberRemove": "Remove",
+  "memberRemoveTitle": "Remove {name}?",
+  "@memberRemoveTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberRemoveBody": "They lose access to this organization. Their hours stay in your reports.",
+  "transferOwnership": "Transfer ownership",
+  "transferTitle": "Make {name} the owner?",
+  "@transferTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "transferBody": "They get full control, including deleting the organization. You stay as an admin.",
+  "settingsOrgDetails": "Organization settings",
+  "settingsOrgDetailsSubtitle": "Name, currency, timezone, week start, CSV format",
+  "settingsActivity": "Activity log",
+  "orgName": "Company name",
+  "orgCurrency": "Currency",
+  "orgTimezone": "Timezone",
+  "orgTimezoneHelp": "IANA name, e.g. Europe/Warsaw",
+  "orgTimezoneInvalid": "Use a name like Europe/Warsaw",
+  "weekStart": "First day of the week",
+  "use24h": "24-hour clock",
+  "csvFormat": "CSV format",
+  "csvFormatComma": "Comma separator, dot decimal (1.50)",
+  "csvFormatSemicolon": "Semicolon separator, comma decimal (1,50) – European Excel",
+  "csvFormatTab": "Tab separator, dot decimal",
+  "orgLeave": "Leave organization",
+  "orgLeaveTitle": "Leave {name}?",
+  "@orgLeaveTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgLeaveBody": "You lose access to this organization. Your hours stay with the employer. You need a new invite to come back.",
+  "orgDelete": "Delete organization",
+  "orgDeleteTitle": "Delete {name}?",
+  "@orgDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgDeleteBody": "All projects, entries, members and reports of this organization are deleted for everyone. This cannot be undone.",
+  "orgDeleteTypeName": "Type the organization name",
+  "accountDelete": "Delete account",
+  "accountDeleteTitle": "Delete your account?",
+  "accountDeleteBody": "Your profile and memberships are deleted and you are signed out. Hours you tracked stay with your employers without your name or email. This cannot be undone.",
+  "auditEmpty": "No activity yet.",
+  "auditOrgCreate": "Organization created",
+  "auditTransfer": "Ownership transferred to {name}",
+  "@auditTransfer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "auditInviteCreate": "Invited {email}",
+  "@auditInviteCreate": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "auditInviteResend": "Invite resent to {email}",
+  "@auditInviteResend": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "auditInviteRevoke": "Invite to {email} revoked",
+  "@auditInviteRevoke": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "auditJoin": "{name} joined",
+  "auditRole": "{name} is now {role}",
+  "auditDisable": "{name} disabled",
+  "auditEnable": "{name} enabled",
+  "auditRemove": "{name} removed",
+  "auditLeave": "{name} left",
+  "auditAccountDelete": "A member deleted their account"
 }

@@ -9,6 +9,7 @@ import 'package:standwise/data/repositories/profile_repository.dart';
 import 'package:standwise/data/repositories/projects_repository.dart';
 import 'package:standwise/domain/models.dart';
 import 'package:standwise/domain/projects.dart';
+import 'package:standwise/domain/summaries.dart';
 import 'package:standwise/domain/timer.dart';
 
 const testUser = AuthUser(
@@ -248,6 +249,139 @@ class FakeOrgRepository implements OrgRepository {
     _invites[orgId]?.removeWhere((i) => i.id == inviteId);
     _changes.add(null);
   }
+
+  Membership _copyMember(Membership m, {OrgRole? role, MemberStatus? status}) =>
+      Membership(
+        orgId: m.orgId,
+        uid: m.uid,
+        role: role ?? m.role,
+        status: status ?? m.status,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        email: m.email,
+        joinedAt: m.joinedAt,
+      );
+
+  void _replaceMember(
+    String orgId,
+    String uid,
+    Membership Function(Membership) change,
+  ) {
+    final i = _memberships.indexWhere((m) => m.orgId == orgId && m.uid == uid);
+    if (i < 0) throw const AppException(AppErrorCode.memberNotFound);
+    _memberships[i] = change(_memberships[i]);
+  }
+
+  @override
+  Future<void> setMemberRole({
+    required String orgId,
+    required String uid,
+    required OrgRole role,
+  }) async {
+    calls.add('setMemberRole:$uid:${role.wire}');
+    _check();
+    _replaceMember(orgId, uid, (m) => _copyMember(m, role: role));
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> setMemberStatus({
+    required String orgId,
+    required String uid,
+    required MemberStatus status,
+  }) async {
+    calls.add('setMemberStatus:$uid:${status.name}');
+    _check();
+    _replaceMember(orgId, uid, (m) => _copyMember(m, status: status));
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> removeMember({
+    required String orgId,
+    required String uid,
+  }) async {
+    calls.add('removeMember:$uid');
+    _check();
+    _memberships.removeWhere((m) => m.orgId == orgId && m.uid == uid);
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> transferOwnership({
+    required String orgId,
+    required String uid,
+  }) async {
+    calls.add('transferOwnership:$uid');
+    _check();
+    for (final m in [..._memberships.where((m) => m.orgId == orgId)]) {
+      if (m.role == OrgRole.owner) {
+        _replaceMember(
+          orgId,
+          m.uid,
+          (x) => _copyMember(x, role: OrgRole.admin),
+        );
+      }
+    }
+    _replaceMember(orgId, uid, (m) => _copyMember(m, role: OrgRole.owner));
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> leaveOrganization(String orgId) async {
+    calls.add('leaveOrganization:$orgId');
+    _check();
+    _memberships.removeWhere((m) => m.orgId == orgId && m.uid == 'u1');
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> deleteOrganization({
+    required String orgId,
+    required String confirmName,
+  }) async {
+    calls.add('deleteOrganization:$orgId:$confirmName');
+    _check();
+    if (_orgs[orgId]?.name != confirmName) {
+      throw const AppException(AppErrorCode.nameMismatch);
+    }
+    _orgs.remove(orgId);
+    _memberships.removeWhere((m) => m.orgId == orgId);
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    calls.add('deleteAccount');
+    _check();
+  }
+
+  @override
+  Future<void> updateOrganization({
+    required String orgId,
+    required String name,
+    required OrgSettings settings,
+  }) async {
+    calls.add('updateOrganization:$orgId:$name:${settings.currency}');
+    _check();
+    final o = _orgs[orgId];
+    if (o != null) {
+      _orgs[orgId] = Organization(
+        id: o.id,
+        name: name,
+        status: o.status,
+        settings: settings,
+      );
+    }
+    _changes.add(null);
+  }
+
+  /// Returned by [watchAuditLog].
+  final audit = <AuditEntry>[];
+
+  @override
+  Stream<List<AuditEntry>> watchAuditLog(String orgId, {int limit = 100}) =>
+      _watch(() => audit.take(limit).toList());
 }
 
 /// Emits [read]'s value now and after every [changes] event.
@@ -303,8 +437,15 @@ class FakeProjectsRepository implements ProjectsRepository {
 }
 
 class FakeEntriesRepository implements EntriesRepository {
-  FakeEntriesRepository({List<TimeEntry>? entries, this.timer})
-    : entries = [...?entries];
+  FakeEntriesRepository({
+    List<TimeEntry>? entries,
+    this.timer,
+    List<MonthSummary>? summaries,
+  }) : entries = [...?entries],
+       summaries = [...?summaries];
+
+  /// Server-written monthly summaries (the Team view reads these).
+  final List<MonthSummary> summaries;
 
   /// Including soft-deleted ones.
   final List<TimeEntry> entries;
@@ -399,6 +540,22 @@ class FakeEntriesRepository implements EntriesRepository {
             )
             .toList()
           ..sort((a, b) => b.start.compareTo(a.start)),
+    _changes.stream,
+  );
+
+  @override
+  Stream<List<MonthSummary>> watchSummaries(
+    String orgId, {
+    required String? uid,
+    List<String>? monthKeys,
+  }) => watchValue(
+    () => summaries
+        .where(
+          (m) =>
+              (uid == null || m.uid == uid) &&
+              (monthKeys == null || monthKeys.contains(m.monthKey)),
+        )
+        .toList(),
     _changes.stream,
   );
 }

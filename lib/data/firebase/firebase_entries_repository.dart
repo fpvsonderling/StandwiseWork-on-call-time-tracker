@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/date_ranges.dart';
 import '../../domain/models.dart';
+import '../../domain/summaries.dart';
 import '../../domain/timer.dart';
 import '../repositories/entries_repository.dart';
 import '../sync.dart';
@@ -164,5 +165,55 @@ class FirebaseEntriesRepository implements EntriesRepository {
         .orderBy('start', descending: true)
         .snapshots()
         .map((s) => s.docs.map(_entry).where((e) => !e.deleted).toList());
+  }
+
+  @override
+  Stream<List<MonthSummary>> watchSummaries(
+    String orgId, {
+    required String? uid,
+    List<String>? monthKeys,
+  }) {
+    Query<Map<String, dynamic>> q = _org(orgId).collection('summaries');
+    if (uid != null) q = q.where('uid', isEqualTo: uid);
+    if (monthKeys != null && monthKeys.isNotEmpty) {
+      q = q
+          .where('monthKey', isGreaterThanOrEqualTo: monthKeys.first)
+          .where('monthKey', isLessThanOrEqualTo: monthKeys.last);
+    }
+    return q.snapshots().map((s) => s.docs.map(_summary).toList());
+  }
+
+  static int _int(Object? v) => (v as num?)?.toInt() ?? 0;
+
+  static SummaryBucket _bucket(Object? raw) {
+    final m = raw is Map ? raw : const {};
+    return SummaryBucket(
+      workMin: _int(m['workMin']),
+      standbyMin: _int(m['standbyMin']),
+      amountMinor: _int(m['amountMinor']),
+      count: _int(m['count']),
+    );
+  }
+
+  static MonthSummary _summary(DocumentSnapshot<Map<String, dynamic>> d) {
+    final m = d.data() ?? const {};
+    final days = <int, Map<String, SummaryBucket>>{};
+    final rawDays = m['days'];
+    if (rawDays is Map) {
+      for (final MapEntry(:key, :value) in rawDays.entries) {
+        final day = int.tryParse('$key');
+        final byProject = value is Map ? value['byProject'] : null;
+        if (day == null || byProject is! Map) continue;
+        days[day] = {
+          for (final MapEntry(key: p, value: b) in byProject.entries)
+            '$p': _bucket(b),
+        };
+      }
+    }
+    return MonthSummary(
+      uid: m['uid'] as String? ?? '',
+      monthKey: m['monthKey'] as String? ?? '',
+      days: days,
+    );
   }
 }

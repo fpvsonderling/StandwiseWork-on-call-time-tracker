@@ -84,6 +84,12 @@ class CallableClient {
       'invite-expired' => AppErrorCode.inviteExpired,
       'invite-used' => AppErrorCode.inviteUsed,
       'invite-email-mismatch' => AppErrorCode.inviteEmailMismatch,
+      'member-not-found' => AppErrorCode.memberNotFound,
+      'owner-protected' => AppErrorCode.ownerProtected,
+      'self-change' => AppErrorCode.selfChange,
+      'not-owner' => AppErrorCode.notOwner,
+      'owner-must-transfer' => AppErrorCode.ownerMustTransfer,
+      'name-mismatch' => AppErrorCode.nameMismatch,
       _ => switch (status) {
         'INVALID_ARGUMENT' => AppErrorCode.invalidInput,
         'PERMISSION_DENIED' ||

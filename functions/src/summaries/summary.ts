@@ -20,6 +20,8 @@ export interface Bucket {
   workMin: number;
   standbyMin: number;
   amountMinor: number;
+  /** Number of entries (for the Team table). */
+  count: number;
 }
 
 export interface DaySummary extends Bucket {
@@ -65,13 +67,14 @@ export function dayKey(start: Date, monthKey: string, timeZone: string): string 
 }
 
 function empty(): Bucket {
-  return { workMin: 0, standbyMin: 0, amountMinor: 0 };
+  return { workMin: 0, standbyMin: 0, amountMinor: 0, count: 0 };
 }
 
 function add(b: Bucket, e: EntryForSummary, amount: number): void {
   if (e.type === 'standby') b.standbyMin += e.durationMin;
   else b.workMin += e.durationMin;
   b.amountMinor += amount;
+  b.count += 1;
 }
 
 export function buildDays(

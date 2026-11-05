@@ -9,6 +9,8 @@ import '../../app/l10n.dart';
 import '../../app/router.dart';
 import '../../app/session.dart';
 import '../../data/providers.dart';
+import '../../domain/models.dart';
+import 'account_actions.dart';
 
 final _packageInfoProvider = FutureProvider<PackageInfo>(
   (ref) => PackageInfo.fromPlatform(),
@@ -31,7 +33,14 @@ class SettingsScreen extends ConsumerWidget {
       children: [
         if (session case SessionReady(:final membership)) ...[
           _Header(l10n.settingsOrganization),
-          if (membership.isAdmin)
+          if (membership.isAdmin) ...[
+            ListTile(
+              leading: const Icon(Icons.business_outlined),
+              title: Text(l10n.settingsOrgDetails),
+              subtitle: Text(l10n.settingsOrgDetailsSubtitle),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go(Routes.orgSettings),
+            ),
             ListTile(
               leading: const Icon(Icons.group_add_outlined),
               title: Text(l10n.settingsMembers),
@@ -39,12 +48,34 @@ class SettingsScreen extends ConsumerWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.go(Routes.members),
             ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: Text(l10n.settingsActivity),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go(Routes.activity),
+            ),
+          ],
           ListTile(
             leading: const Icon(Icons.add_business_outlined),
             title: Text(l10n.orgAddOrJoin),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go(Routes.addOrganization),
           ),
+          if (membership.role == OrgRole.owner)
+            ListTile(
+              leading: Icon(
+                Icons.delete_forever_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(l10n.orgDelete),
+              onTap: () => deleteOrganizationFlow(context, ref),
+            )
+          else
+            ListTile(
+              leading: const Icon(Icons.exit_to_app),
+              title: Text(l10n.orgLeave),
+              onTap: () => leaveOrganizationFlow(context, ref),
+            ),
         ],
         if (session case SessionReady(:final profile)) ...[
           _Header(l10n.settingsAccount),
@@ -59,6 +90,14 @@ class SettingsScreen extends ConsumerWidget {
             leading: const Icon(Icons.logout),
             title: Text(l10n.settingsSignOut),
             onTap: () => ref.read(authRepositoryProvider).signOut(),
+          ),
+          ListTile(
+            leading: Icon(
+              Icons.person_remove_outlined,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            title: Text(l10n.accountDelete),
+            onTap: () => deleteAccountFlow(context, ref),
           ),
         ],
         _Header(l10n.settingsAbout),

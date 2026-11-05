@@ -11,10 +11,6 @@ import '../../domain/projects.dart';
 import '../common/widgets.dart';
 import '../placeholder/placeholder_screens.dart';
 
-/// Own total minutes per project (or [noProjectKey]), all time. Filled from
-/// the monthly summaries (stage 7); empty until then.
-final myProjectTotalsProvider = Provider<Map<String, int>>((ref) => const {});
-
 /// Projects & rates (spec §5.4). Everyone sets their own Work/Standby rate
 /// per project; admins also add, edit, archive and delete projects.
 class ProjectsScreen extends ConsumerWidget {

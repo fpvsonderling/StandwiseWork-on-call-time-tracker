@@ -5,6 +5,8 @@ import '../data/sync.dart';
 import '../domain/date_ranges.dart';
 import '../domain/models.dart';
 import '../domain/projects.dart';
+import '../domain/reports.dart';
+import '../domain/summaries.dart';
 import '../domain/timer.dart';
 import 'session.dart';
 
@@ -129,3 +131,52 @@ final myRecentEntriesProvider = StreamProvider<List<TimeEntry>>((ref) {
 final writeErrorsProvider = StreamProvider<Object>(
   (ref) => ref.watch(syncTrackerProvider).errors,
 );
+
+/// Members of an organization (admins only; rules reject others).
+final orgMembersProvider = StreamProvider.family<List<Membership>, String>(
+  (ref, orgId) => ref.watch(orgRepositoryProvider).watchMembers(orgId),
+);
+
+/// The signed-in member's own monthly summaries, all months.
+final mySummariesProvider = StreamProvider<List<MonthSummary>>((ref) {
+  final ctx = ref.watch(
+    workContextProvider.select((c) => c == null ? null : (c.orgId, c.uid)),
+  );
+  if (ctx == null) return Stream.value(const []);
+  return ref
+      .watch(entriesRepositoryProvider)
+      .watchSummaries(ctx.$1, uid: ctx.$2);
+});
+
+/// Own total minutes per project ID (or [noProjectKey]), all time, for
+/// Projects & rates (spec §5.4).
+final myProjectTotalsProvider = Provider<Map<String, int>>((ref) {
+  final totals = <String, int>{};
+  for (final s
+      in ref.watch(mySummariesProvider).value ?? const <MonthSummary>[]) {
+    for (final c in s.cells()) {
+      final key = c.projectId ?? noProjectKey;
+      totals[key] = (totals[key] ?? 0) + c.totalMin;
+    }
+  }
+  return totals;
+});
+
+/// Team cells (every member, every project) for the months [range] touches,
+/// limited to days inside [range] (spec §5.5: Team reads summaries).
+final teamCellsProvider = StreamProvider.family<List<ReportCell>, DateRange>((
+  ref,
+  range,
+) {
+  final orgId = ref.watch(workContextProvider.select((c) => c?.orgId));
+  if (orgId == null) return Stream.value(const []);
+  return ref
+      .watch(entriesRepositoryProvider)
+      .watchSummaries(orgId, uid: null, monthKeys: monthKeysIn(range))
+      .map(
+        (summaries) => [
+          for (final s in summaries)
+            ...s.cells().where((c) => range.contains(c.day)),
+        ],
+      );
+});
