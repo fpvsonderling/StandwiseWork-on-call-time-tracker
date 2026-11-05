@@ -12,6 +12,8 @@ import 'firebase_auth_repository.dart';
 import 'firebase_org_repository.dart';
 import 'firebase_platform_check_repository.dart';
 import 'firebase_profile_repository.dart';
+import 'firebase_projects_repository.dart';
+import '../sync.dart';
 
 /// Initializes Firebase for [config] and returns provider overrides wiring the
 /// FlutterFire repositories. Returns an empty list when Firebase is not
@@ -53,8 +55,13 @@ Future<List<Override>> initFirebase(AppConfig config) async {
     baseUrl: functionsUrl,
     idToken: auth.idToken,
   );
+  final sync = SyncTracker();
   return [
     firebaseReadyProvider.overrideWithValue(true),
+    syncTrackerProvider.overrideWithValue(sync),
+    projectsRepositoryProvider.overrideWithValue(
+      FirebaseProjectsRepository(db, sync),
+    ),
     authRepositoryProvider.overrideWithValue(auth),
     platformCheckRepositoryProvider.overrideWithValue(
       FirebasePlatformCheckRepository(db),

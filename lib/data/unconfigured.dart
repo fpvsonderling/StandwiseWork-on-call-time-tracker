@@ -1,10 +1,12 @@
 import '../core/auth/google_tokens.dart';
 import '../core/errors.dart';
 import '../domain/models.dart';
+import '../domain/projects.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/org_repository.dart';
 import 'repositories/platform_check_repository.dart';
 import 'repositories/profile_repository.dart';
+import 'repositories/projects_repository.dart';
 
 /// Used when Firebase has not been configured yet, so the app still starts
 /// (and CI can build it) before `flutterfire configure` has run.
@@ -123,4 +125,31 @@ class UnconfiguredOrgRepository implements OrgRepository {
     required String orgId,
     required String inviteId,
   }) => _fail();
+}
+
+class UnconfiguredProjectsRepository implements ProjectsRepository {
+  const UnconfiguredProjectsRepository();
+
+  static Future<Never> _fail() =>
+      Future.error(const AppException(AppErrorCode.firebaseNotConfigured));
+
+  @override
+  Stream<List<Project>> watchProjects(String orgId) => Stream.value([]);
+
+  @override
+  String newProjectId(String orgId) => 'local';
+
+  @override
+  Future<void> saveProject(
+    String orgId,
+    Project project, {
+    required bool isNew,
+  }) => _fail();
+
+  @override
+  Stream<Map<String, ProjectRate>> watchRates(String orgId, String uid) =>
+      Stream.value(const {});
+
+  @override
+  Future<void> saveRate(String orgId, String uid, ProjectRate rate) => _fail();
 }

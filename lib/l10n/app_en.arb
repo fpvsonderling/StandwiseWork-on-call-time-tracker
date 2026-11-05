@@ -219,5 +219,66 @@
   },
   "inviteRevoked": "Invite revoked",
   "cancel": "Cancel",
-  "close": "Close"
+  "close": "Close",
+  "save": "Save",
+  "edit": "Edit",
+  "delete": "Delete",
+  "archive": "Archive",
+  "restore": "Restore",
+  "noProject": "No project",
+  "noProjectDeleted": "No project (deleted)",
+  "typeWork": "Work",
+  "typeStandby": "Standby",
+  "perHour": "{currency}/h",
+  "rateInvalid": "Enter an amount like 45 or 45,50",
+  "projectsIntro": "Set your own hourly rate for Work and Standby on each project. New entries use the rate valid when they are created.",
+  "projectsActive": "Projects ({count})",
+  "@projectsActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectsArchived": "Archived ({count})",
+  "@projectsArchived": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "projectsEmpty": "No projects yet. Your admin adds them; you can still track time without a project.",
+  "projectsEmptyAdmin": "No projects yet. Add one, or track time without a project.",
+  "projectYourTotal": "Your total {time}",
+  "@projectYourTotal": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "projectAdd": "Add project",
+  "projectEdit": "Edit project",
+  "projectName": "Project name",
+  "projectClient": "Client (optional)",
+  "projectColor": "Color",
+  "projectColorN": "Color {n}",
+  "@projectColorN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "projectActions": "Project actions",
+  "projectDeleteTitle": "Delete “{name}”?",
+  "@projectDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "projectDeleteBody": "The project disappears from lists and pickers. Its entries stay and show “No project (deleted)”."
 }

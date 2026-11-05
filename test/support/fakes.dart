@@ -5,7 +5,9 @@ import 'package:standwise/core/errors.dart';
 import 'package:standwise/data/repositories/auth_repository.dart';
 import 'package:standwise/data/repositories/org_repository.dart';
 import 'package:standwise/data/repositories/profile_repository.dart';
+import 'package:standwise/data/repositories/projects_repository.dart';
 import 'package:standwise/domain/models.dart';
+import 'package:standwise/domain/projects.dart';
 
 const testUser = AuthUser(
   uid: 'u1',
@@ -242,6 +244,58 @@ class FakeOrgRepository implements OrgRepository {
     calls.add('revokeInvite:$inviteId');
     _check();
     _invites[orgId]?.removeWhere((i) => i.id == inviteId);
+    _changes.add(null);
+  }
+}
+
+/// Emits [read]'s value now and after every [changes] event.
+Stream<T> watchValue<T>(T Function() read, Stream<void> changes) async* {
+  yield read();
+  await for (final _ in changes) {
+    yield read();
+  }
+}
+
+class FakeProjectsRepository implements ProjectsRepository {
+  FakeProjectsRepository({
+    List<Project>? projects,
+    Map<String, ProjectRate>? rates,
+  }) : projects = [...?projects],
+       rates = {...?rates};
+
+  final List<Project> projects;
+
+  /// The signed-in member's rates.
+  final Map<String, ProjectRate> rates;
+  final _changes = StreamController<void>.broadcast();
+  var _ids = 0;
+
+  @override
+  Stream<List<Project>> watchProjects(String orgId) =>
+      watchValue(() => [...projects], _changes.stream);
+
+  @override
+  String newProjectId(String orgId) => 'p${++_ids}';
+
+  @override
+  Future<void> saveProject(
+    String orgId,
+    Project project, {
+    required bool isNew,
+  }) async {
+    projects
+      ..removeWhere((p) => p.id == project.id)
+      ..add(project);
+    _changes.add(null);
+  }
+
+  @override
+  Stream<Map<String, ProjectRate>> watchRates(String orgId, String uid) =>
+      watchValue(() => {...rates}, _changes.stream);
+
+  @override
+  Future<void> saveRate(String orgId, String uid, ProjectRate rate) async {
+    rates[rate.projectId] = rate;
     _changes.add(null);
   }
 }
