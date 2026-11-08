@@ -117,6 +117,9 @@ def cmd_ensure_bundle(args):
         "/bundleIds",
         {"data": {"type": "bundleIds", "attributes": {"identifier": args.id, "name": args.name, "platform": "UNIVERSAL"}}},
     )
+    if status == 409 and find_bundle(args.id):
+        print(f"Bundle ID {args.id} exists.")  # registered by a parallel job
+        return
     ok(status, data, "Register bundle ID")
     print(f"Registered bundle ID {args.id}.")
 

@@ -40,10 +40,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install pyjwt cryptography
-      - name: App ID and app record
-        run: |
-          python tool/apple/asc.py ensure-bundle --id "$BUNDLE_ID" --name Standwise
-          python tool/apple/asc.py require-app --bundle "$BUNDLE_ID"
+      - name: App ID
+        run: python tool/apple/asc.py ensure-bundle --id "$BUNDLE_ID" --name Standwise
       - name: Signing certificate and profile
         run: >-
           python tool/apple/asc.py signing --bundle "$BUNDLE_ID" --out "$SIGN_DIR"
@@ -109,6 +107,7 @@ jobs:
             --keychain "$KEYCHAIN" "$SIGN_DIR/upload.pkg"
       - name: Upload to TestFlight
         run: |
+          python tool/apple/asc.py require-app --bundle "$BUNDLE_ID"
           python tool/apple/asc.py write-key --dir "$HOME/.appstoreconnect/private_keys"
           file=$(ls "$SIGN_DIR"/upload.ipa "$SIGN_DIR"/upload.pkg 2>/dev/null | head -1)
           xcrun altool --upload-app --type ${{ matrix.platform == 'ios' && 'ios' || 'macos' }} \
