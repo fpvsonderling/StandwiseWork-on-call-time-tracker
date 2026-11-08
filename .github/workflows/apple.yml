@@ -1,0 +1,121 @@
+name: TestFlight
+
+# Signed iOS and macOS builds uploaded to TestFlight (D-038). Needs the
+# App Store Connect API secrets and the app record (docs/SETUP.md §10).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: testflight-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.47.9'
+  BUNDLE_ID: com.sonderling.standwise
+  DART_DEFINES: >-
+    --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ vars.GOOGLE_SERVER_CLIENT_ID || '655809046065-e8vo736pojq8tbc0m17n3msgo4ttsntr.apps.googleusercontent.com' }}
+    --dart-define=GOOGLE_APPLE_CLIENT_ID=${{ vars.GOOGLE_APPLE_CLIENT_ID || '655809046065-7l3sgus28ukcss1ciitntmpg575le78k.apps.googleusercontent.com' }}
+  ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+  ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+  ASC_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+
+jobs:
+  testflight:
+    name: TestFlight ${{ matrix.platform }}
+    runs-on: macos-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, macos]
+    env:
+      SIGN_DIR: ${{ github.workspace }}/../signing
+      KEYCHAIN: ${{ github.workspace }}/../ci.keychain-db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyjwt cryptography
+      - name: App ID
+        run: python tool/apple/asc.py ensure-bundle --id "$BUNDLE_ID" --name Standwise
+      - name: Signing certificate and profile
+        run: >-
+          python tool/apple/asc.py signing --bundle "$BUNDLE_ID" --out "$SIGN_DIR"
+          --platform ${{ matrix.platform == 'ios' && 'IOS' || 'MAC_OS' }}
+      - name: Keychain and profile
+        run: |
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          for p12 in "$SIGN_DIR"/*.p12; do
+            security import "$p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          done
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          ext=${{ matrix.platform == 'ios' && 'mobileprovision' || 'provisionprofile' }}
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"
+            cp "$PROFILE_PATH" "$d/$PROFILE_UUID.$ext"
+          done
+      - name: Manual signing for the app target
+        run: |
+          if [ "${{ matrix.platform }}" = ios ]; then
+            python tool/apple/manual_signing.py ios/Runner.xcodeproj/project.pbxproj \
+              "PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;" "$TEAM_ID" "$PROFILE_NAME" "$SIGNING_IDENTITY"
+          else
+            python tool/apple/manual_signing.py macos/Runner.xcodeproj/project.pbxproj \
+              "CODE_SIGN_ENTITLEMENTS = Runner/Release.entitlements;" "$TEAM_ID" "$PROFILE_NAME" "$SIGNING_IDENTITY"
+          fi
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Build iOS
+        if: matrix.platform == 'ios'
+        run: |
+          cat > "$SIGN_DIR/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict><key>$BUNDLE_ID</key><string>$PROFILE_NAME</string></dict>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          flutter build ipa --release -t lib/main_dev.dart --build-number=${{ github.run_number }} \
+            --export-options-plist="$SIGN_DIR/ExportOptions.plist" $DART_DEFINES
+          ls build/ios/ipa/*.ipa
+          cp build/ios/ipa/*.ipa "$SIGN_DIR/upload.ipa"
+      - name: Build macOS
+        if: matrix.platform == 'macos'
+        run: |
+          flutter build macos --release -t lib/main_dev.dart --build-number=${{ github.run_number }} $DART_DEFINES
+          app=$(ls -d build/macos/Build/Products/Release/*.app | head -1)
+          codesign --verify --deep --strict "$app"
+          productbuild --component "$app" /Applications --sign "$INSTALLER_IDENTITY" \
+            --keychain "$KEYCHAIN" "$SIGN_DIR/upload.pkg"
+      - name: Upload to TestFlight
+        run: |
+          python tool/apple/asc.py require-app --bundle "$BUNDLE_ID"
+          python tool/apple/asc.py write-key --dir "$HOME/.appstoreconnect/private_keys"
+          file=$(ls "$SIGN_DIR"/upload.ipa "$SIGN_DIR"/upload.pkg 2>/dev/null | head -1)
+          xcrun altool --upload-app --type ${{ matrix.platform == 'ios' && 'ios' || 'macos' }} \
+            --file "$file" --apiKey "$(echo "$ASC_KEY_ID" | tr -d '[:space:]')" \
+            --apiIssuer "$(echo "$ASC_ISSUER_ID" | tr -d '[:space:]')"
+      - name: Revoke the temporary certificates
+        if: always()
+        run: |
+          python tool/apple/asc.py revoke --out "$SIGN_DIR" || true
+          security delete-keychain "$KEYCHAIN" || true
+          rm -rf "$HOME/.appstoreconnect"

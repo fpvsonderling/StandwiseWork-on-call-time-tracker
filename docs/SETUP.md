@@ -151,6 +151,13 @@ Already queued invites are sent once the extension is running. Without it the do
 
 `purgeDeletedEntries` runs daily and needs the **Cloud Scheduler API**. The first `firebase deploy --only functions` turns it on automatically; if the deploy says it can't, open <https://console.cloud.google.com/apis/library/cloudscheduler.googleapis.com?project=standwise-dev>, click **Enable** and deploy again.
 
+## 10. TestFlight (iOS and macOS, no Mac needed)
+
+1. App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → **+**, name `Standwise CI`, role **App Manager**. Note the Issuer ID and Key ID and download the `.p8` file (only once).
+2. GitHub → repository Settings → Secrets and variables → Actions → add `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_KEY` (the whole `.p8` file).
+3. App Store Connect → Apps → **+** → New App: platforms iOS and macOS, bundle ID `com.sonderling.standwise` (CI registers it on its first run), SKU `standwise`.
+4. Every push to `main` runs **TestFlight** (`.github/workflows/apple.yml`). After Apple processes the build (10–30 minutes) it appears under TestFlight. Add yourself to an **Internal Testing** group once, then install the TestFlight app on the iPhone or Mac.
+
 ---
 
 Later stages add: App Check, Crashlytics, the prod project, deploy and release workflows, signing and store publishing (stage 8).

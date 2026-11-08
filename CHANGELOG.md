@@ -5,6 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
+- Signed iOS and macOS builds uploaded to TestFlight from CI on every push to `main`; Google sign-in URL scheme on iOS and macOS.
 - Stage 7: Team view for admins (totals, people table, one person's entries, chart, projects, team CSV); member actions (make admin/employee, disable, enable, remove, transfer ownership); organization settings (name, currency, timezone, week start, 24-hour clock, CSV format); activity log; leave organization, delete organization, delete account.
 - Cloud Functions `setMemberRole`, `setMemberStatus`, `removeMember`, `transferOwnership`, `leaveOrganization`, `deleteOrganization`, `deleteAccount`; `onEntryWritten` keeps monthly summaries; `purgeDeletedEntries` (daily) removes deleted entries after 30 days.
 - Stage 6: My reports with ranges (this/last week and month, custom), project filter, totals, daily chart, project table and CSV export.
