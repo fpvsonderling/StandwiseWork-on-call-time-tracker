@@ -4,12 +4,23 @@ import 'package:standwise/data/providers.dart';
 import 'package:standwise/domain/models.dart';
 import 'package:standwise/domain/projects.dart';
 import 'package:standwise/domain/summaries.dart';
+import 'package:standwise/features/common/csv_export.dart';
 
 import '../support/fakes.dart';
 import '../support/harness.dart';
 
 String _monthKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}';
+
+class _FakeSaver implements CsvSaver {
+  final saved = <(String, String)>[];
+
+  @override
+  Future<bool> save(BuildContext context, String fileName, String csv) async {
+    saved.add((fileName, csv));
+    return true;
+  }
+}
 
 void main() {
   final bob = membershipOf(
@@ -73,11 +84,13 @@ void main() {
         ),
       ],
     );
+    final saver = _FakeSaver();
     await pumpApp(
       tester,
       size: const Size(1200, 1600),
       otherMembers: [bob, cleo],
       overrides: [
+        csvSaverProvider.overrideWithValue(saver),
         entriesRepositoryProvider.overrideWithValue(entries),
         projectsRepositoryProvider.overrideWithValue(
           FakeProjectsRepository(
@@ -96,6 +109,23 @@ void main() {
     // Bob: 2h work + 1h standby this month; last month not counted.
     expect(find.text('3:00'), findsWidgets);
     expect(find.textContaining('16:39'), findsNothing);
+
+    // The team CSV is the People table with a Total row.
+    await tester.tap(find.text('Export team CSV'));
+    await tester.pumpAndSettle();
+    final (name, csv) = saver.saved.single;
+    expect(name, startsWith('standwise-team-summary-'));
+    final rows = csv.substring(1).split('\r\n');
+    expect(rows.first, 'Person,Email,Work,Standby,Total,Hours,Entries,Amount');
+    expect(
+      rows,
+      contains('Bob Nowak,bob@example.com,2:00,0:00,2:00,2.00,1,120.00'),
+    );
+    expect(
+      rows,
+      contains('Cleo Zielinska,cleo@example.com,0:00,0:00,0:00,0.00,0,0.00'),
+    );
+    expect(rows, contains('Total,,2:00,0:00,2:00,2.00,1,120.00'));
 
     await tester.tap(find.text('Bob Nowak').last);
     await tester.pumpAndSettle();

@@ -88,38 +88,64 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
     final people = uids.toList()
       ..sort((a, b) => sortKey(a).compareTo(sortKey(b)));
 
-    Future<void> export() async {
+    Future<void> export({required bool summary}) async {
       setState(() => _exporting = true);
       try {
-        final entries = await ref
-            .read(entriesRepositoryProvider)
-            .watchEntries(
-              ctx.orgId,
-              uid: _person,
-              from: range.range.start,
-              to: range.range.end,
-            )
-            .first;
-        final csv = entriesCsv(
-          entries: entries.where((e) => matchesProject(e, _project)),
-          projects: projects,
-          settings: ctx.settings,
-          labels: csvLabels(l10n),
-          people: {
-            for (final m in members)
-              m.uid: (
-                firstName: m.firstName,
-                lastName: m.lastName,
-                email: m.email,
-              ),
-          },
-        );
+        final entries =
+            (await ref
+                    .read(entriesRepositoryProvider)
+                    .watchEntries(
+                      ctx.orgId,
+                      uid: _person,
+                      from: range.range.start,
+                      to: range.range.end,
+                    )
+                    .first)
+                .where((e) => matchesProject(e, _project));
+        final csvPeople = <String, CsvPerson>{
+          for (final m in members)
+            m.uid: (
+              firstName: m.firstName,
+              lastName: m.lastName,
+              email: m.email,
+            ),
+        };
+        final csv = summary
+            ? teamSummaryCsv(
+                uids: _person == null ? people : [_person!],
+                entries: entries,
+                people: csvPeople,
+                settings: ctx.settings,
+                labels: TeamCsvLabels(
+                  person: l10n.person,
+                  email: l10n.csvEmail,
+                  work: l10n.typeWork,
+                  standby: l10n.typeStandby,
+                  total: l10n.total,
+                  hours: l10n.csvHours,
+                  entries: l10n.entries,
+                  amount: l10n.amount,
+                  totalRow: l10n.total,
+                  formerMember: l10n.formerMember,
+                ),
+              )
+            : entriesCsv(
+                entries: entries,
+                projects: projects,
+                settings: ctx.settings,
+                labels: csvLabels(l10n),
+                people: csvPeople,
+              );
         if (!context.mounted) return;
         await ref
             .read(csvSaverProvider)
             .save(
               context,
-              csvFileName('team-hours', range.range.start, range.lastDay),
+              csvFileName(
+                summary ? 'team-summary' : 'team-entries',
+                range.range.start,
+                range.lastDay,
+              ),
               csv,
             );
       } catch (e) {
@@ -161,7 +187,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
               ),
             ),
             FilledButton.tonalIcon(
-              onPressed: _exporting ? null : export,
+              onPressed: _exporting ? null : () => export(summary: true),
               icon: _exporting
                   ? const SizedBox(
                       width: 18,
@@ -170,6 +196,11 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                     )
                   : const Icon(Icons.download),
               label: Text(l10n.exportTeamCsv),
+            ),
+            OutlinedButton.icon(
+              onPressed: _exporting ? null : () => export(summary: false),
+              icon: const Icon(Icons.list_alt),
+              label: Text(l10n.exportTeamEntriesCsv),
             ),
           ],
         ),
