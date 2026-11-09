@@ -65,6 +65,30 @@ void main() {
     expect(find.text('Platform check'), findsNothing);
   });
 
+  testWidgets('About opens the bundled privacy policy and terms', (
+    tester,
+  ) async {
+    await _setSize(tester, const Size(400, 800));
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Source code'), findsNothing);
+
+    await tester.scrollUntilVisible(find.text('Privacy policy'), 200);
+    await tester.tap(find.text('Privacy policy'));
+    await tester.pumpAndSettle();
+    expect(find.text('Who is responsible'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Terms'));
+    await tester.pumpAndSettle();
+    expect(find.text('Terms of Use'), findsOneWidget);
+    expect(find.text('Acceptable use'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('dark mode renders', (tester) async {
     await _setSize(tester, const Size(360, 740));
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;

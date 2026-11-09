@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../app/brand.dart';
 import '../../app/l10n.dart';
 import '../../core/auth/google_tokens.dart';
 import '../../core/errors.dart';
 import '../../data/providers.dart';
+import '../legal/legal_screen.dart';
 
 /// Signed-out start screen: what the app does, Google sign-in, privacy link
 /// (spec §4.1). The router moves on once Firebase reports the user.
@@ -125,11 +124,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                     alignment: WrapAlignment.center,
                     children: [
                       TextButton(
-                        onPressed: () => _open(Brand.termsUrl),
+                        onPressed: () =>
+                            showLegalDocument(context, LegalDocument.terms),
                         child: Text(l10n.settingsTerms),
                       ),
                       TextButton(
-                        onPressed: () => _open(Brand.privacyPolicyUrl),
+                        onPressed: () =>
+                            showLegalDocument(context, LegalDocument.privacy),
                         child: Text(l10n.settingsPrivacyPolicy),
                       ),
                     ],
@@ -142,7 +143,4 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       ),
     );
   }
-
-  Future<void> _open(String url) =>
-      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 }

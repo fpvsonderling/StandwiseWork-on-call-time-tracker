@@ -67,6 +67,16 @@ void main() {
     expect(find.text('What are you working on?'), findsOneWidget);
   });
 
+  testWidgets('the welcome screen opens the privacy policy', (tester) async {
+    await tester.pumpWidget(
+      _app(FakeAuthRepository(), FakeProfileRepository()),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Privacy policy'));
+    await tester.pumpAndSettle();
+    expect(find.text('What we collect'), findsOneWidget);
+  });
+
   testWidgets('validates first and last name', (tester) async {
     final auth = FakeAuthRepository(
       signedIn: const AuthUser(
