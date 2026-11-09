@@ -23,6 +23,7 @@ export interface MailDoc {
 
 export interface OutgoingMail {
   from: string;
+  replyTo: string;
   to: string[];
   subject: string;
   text: string;
@@ -40,6 +41,7 @@ export function outgoingMail(doc: MailDoc): OutgoingMail | null {
   if (typeof m.subject !== 'string' || typeof m.text !== 'string') return null;
   return {
     from: MAIL_FROM,
+    replyTo: MAIL_SENDER,
     to: recipients,
     subject: m.subject,
     text: m.text,
