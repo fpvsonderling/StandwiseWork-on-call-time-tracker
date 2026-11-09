@@ -15,10 +15,9 @@ export interface InviteEmailInput {
 }
 
 /**
- * A document for the `mail` collection, in the format of the Firebase
- * "Trigger Email" extension (docs/SETUP.md). Without the extension the
- * document just stays there; admins can still share the code shown in the
- * app.
+ * A document for the `mail` collection; `sendMail` (mail/send_mail.ts)
+ * delivers it. Without the SMTP password secret it records an error; admins
+ * can still share the code shown in the app.
  */
 export function inviteEmail({ to, orgName, inviterName, code }: InviteEmailInput) {
   const link = `standwise://join?code=${encodeURIComponent(code)}`;

@@ -78,6 +78,13 @@ final myRatesProvider = StreamProvider<Map<String, ProjectRate>>((ref) {
   return ref.watch(projectsRepositoryProvider).watchRates(ctx.$1, ctx.$2);
 });
 
+/// Another member's current rates (admins reading the team, D-044).
+final memberRatesProvider =
+    StreamProvider.family<Map<String, ProjectRate>, (String, String)>(
+      (ref, key) =>
+          ref.watch(projectsRepositoryProvider).watchRates(key.$1, key.$2),
+    );
+
 final syncStateProvider = StreamProvider<SyncState>(
   (ref) => ref.watch(syncTrackerProvider).states,
 );

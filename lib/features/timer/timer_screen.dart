@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/l10n.dart';
 import '../../app/theme.dart';
+import '../../app/tracker_prefs.dart';
 import '../../app/work_state.dart';
 import '../../domain/date_ranges.dart';
 import '../../domain/durations.dart';
@@ -18,7 +19,8 @@ import '../placeholder/placeholder_screens.dart';
 import 'entry_editor.dart';
 import 'timer_actions.dart';
 
-/// Timer tab (spec §5.1): tracker bar, week summary, entries by day.
+/// Timer tab (spec §5.1): tracker bar and entries by day. The week chart
+/// lives in My reports (D-044).
 class TimerScreen extends ConsumerWidget {
   const TimerScreen({super.key});
 
@@ -38,7 +40,6 @@ class TimerScreen extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 32),
       children: [
         const TrackerCard(),
-        _WeekSummary(entries: entries),
         if (entriesState.isLoading && entries.isEmpty)
           const Padding(
             padding: EdgeInsets.all(32),
@@ -102,8 +103,14 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
   final _description = TextEditingController();
   final _focus = FocusNode();
   _Mode _mode = _Mode.timer;
+
+  /// Picked in this session; `null` falls back to [_defaultProject].
   String? _projectId;
   EntryType _type = EntryType.work;
+
+  /// Last project remembered for [_prefsOrg] on this device.
+  String? _rememberedProject;
+  String? _prefsOrg;
 
   // Manual entry.
   DateTime _date = dateOnly(DateTime.now());
@@ -116,6 +123,43 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
     _focus.addListener(() {
       if (!_focus.hasFocus) _pushDescription();
     });
+    _loadMode();
+  }
+
+  TrackerPrefs get _prefs => ref.read(trackerPrefsProvider);
+
+  Future<void> _loadMode() async {
+    final mode = await _prefs.read(TrackerPrefKeys.mode);
+    if (!mounted || mode == null || _running != null) return;
+    setState(() => _mode = mode == 'manual' ? _Mode.manual : _Mode.timer);
+  }
+
+  Future<void> _loadProject(String orgId) async {
+    _prefsOrg = orgId;
+    final id = await _prefs.read(TrackerPrefKeys.project(orgId));
+    if (!mounted || _prefsOrg != orgId) return;
+    setState(() => _rememberedProject = id);
+  }
+
+  void _setMode(_Mode mode) {
+    setState(() => _mode = mode);
+    _prefs.write(TrackerPrefKeys.mode, mode.name);
+  }
+
+  /// The remembered project, else the project of the latest entry, else the
+  /// first active project; always an active one (or `null` if none).
+  String? _defaultProject(List<Project> active, List<TimeEntry> recent) {
+    bool ok(String? id) => id != null && active.any((p) => p.id == id);
+    if (ok(_rememberedProject)) return _rememberedProject;
+    TimeEntry? latest;
+    for (final e in recent) {
+      if (ok(e.projectId) &&
+          (latest == null || e.start.isAfter(latest.start))) {
+        latest = e;
+      }
+    }
+    if (latest != null) return latest.projectId;
+    return active.isEmpty ? null : active.first.id;
   }
 
   @override
@@ -139,14 +183,14 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
     }
   }
 
-  Future<void> _start() async {
+  Future<void> _start(String? projectId) async {
     await _guard(
       context,
       () => ref
           .read(timerActionsProvider)
           .start(
             description: _description.text,
-            projectId: _projectId,
+            projectId: projectId,
             type: _type,
           ),
     );
@@ -158,13 +202,17 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
   }
 
   void _setProject(String? id) {
+    if (id == null) return;
     setState(() => _projectId = id);
+    final orgId = ref.read(workContextProvider)?.orgId;
+    if (orgId != null) {
+      _rememberedProject = id;
+      _prefs.write(TrackerPrefKeys.project(orgId), id);
+    }
     if (_running != null) {
       _guard(
         context,
-        () => ref
-            .read(timerActionsProvider)
-            .updateRunning(projectId: id, clearProject: id == null),
+        () => ref.read(timerActionsProvider).updateRunning(projectId: id),
       );
     }
   }
@@ -185,7 +233,7 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
     to: (hour: _to.hour, minute: _to.minute),
   );
 
-  Future<void> _addManual() async {
+  Future<void> _addManual(String? projectId) async {
     final b = _manualBounds;
     if (validateSpan(b.start, b.end) != null) return;
     await _guard(
@@ -196,7 +244,7 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
             start: b.start,
             end: b.end,
             description: _description.text,
-            projectId: _projectId,
+            projectId: projectId,
             type: _type,
           ),
     );
@@ -211,7 +259,13 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
     final projects = ref.watch(activeProjectsProvider);
     final byId = ref.watch(projectsByIdProvider);
     final rates = ref.watch(myRatesProvider).value ?? const {};
+    final recent = ref.watch(myRecentEntriesProvider).value ?? const [];
     final status = context.statusColors;
+    if (_prefsOrg != ctx.orgId) {
+      _prefsOrg = ctx.orgId;
+      _rememberedProject = null;
+      Future.microtask(() => _loadProject(ctx.orgId));
+    }
 
     // A running timer (from this or another device) drives the fields.
     ref.listen(timerProvider, (_, next) {
@@ -227,10 +281,16 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
       }
     });
 
-    final projectId = running?.projectId ?? _projectId;
+    final picked = _projectId != null && projects.any((p) => p.id == _projectId)
+        ? _projectId
+        : null;
+    final projectId = running != null
+        ? running.projectId
+        : picked ?? _defaultProject(projects, recent);
     final type = running?.type ?? _type;
     final rate = currentRate(rates, projectId, type);
     final enabled = ctx.writable;
+    final canSave = enabled && projectId != null;
 
     final description = TextField(
       controller: _description,
@@ -240,9 +300,9 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
       textInputAction: TextInputAction.go,
       onSubmitted: (_) {
         if (_mode == _Mode.manual) {
-          _addManual();
+          if (canSave) _addManual(projectId);
         } else if (running == null) {
-          _start();
+          if (canSave) _start(projectId);
         } else {
           _pushDescription();
         }
@@ -266,6 +326,9 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
       ],
       enabled: enabled,
       onChanged: _setProject,
+      helperText: projects.isEmpty
+          ? (ctx.isAdmin ? l10n.projectsNoneAdmin : l10n.projectsNoneEmployee)
+          : null,
     );
 
     final typeSwitch = TypeSwitch(
@@ -294,9 +357,7 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
         ),
       ],
       selected: {_mode},
-      onSelectionChanged: running == null
-          ? (s) => setState(() => _mode = s.first)
-          : null,
+      onSelectionChanged: running == null ? (s) => _setMode(s.first) : null,
       showSelectedIcon: false,
     );
 
@@ -322,7 +383,9 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
           ),
           const SizedBox(width: 16),
           FilledButton.icon(
-            onPressed: !enabled ? null : (running == null ? _start : _stop),
+            onPressed: running != null
+                ? (enabled ? _stop : null)
+                : (canSave ? () => _start(projectId) : null),
             style: FilledButton.styleFrom(
               backgroundColor: running == null ? status.work : status.stop,
               foregroundColor: running == null ? status.onWork : status.onStop,
@@ -386,7 +449,9 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
             ),
           ),
           FilledButton.icon(
-            onPressed: enabled && error == null ? _addManual : null,
+            onPressed: canSave && error == null
+                ? () => _addManual(projectId)
+                : null,
             icon: const Icon(Icons.add),
             label: Text(l10n.add),
           ),
@@ -409,16 +474,17 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
                   const SizedBox(height: 12),
                   if (wide)
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(flex: 3, child: description),
-                        const SizedBox(width: 12),
                         Expanded(flex: 2, child: picker),
+                        const SizedBox(width: 12),
+                        Expanded(flex: 3, child: description),
                       ],
                     )
                   else ...[
-                    description,
-                    const SizedBox(height: 12),
                     picker,
+                    const SizedBox(height: 12),
+                    description,
                   ],
                   const SizedBox(height: 12),
                   Wrap(
@@ -481,7 +547,8 @@ class _ClockState extends State<_Clock> {
   }
 }
 
-/// Project dropdown with "No project" first.
+/// Project dropdown; a project is required for new time (D-044), so there is
+/// no "No project" choice.
 class ProjectPicker extends StatelessWidget {
   const ProjectPicker({
     super.key,
@@ -489,35 +556,31 @@ class ProjectPicker extends StatelessWidget {
     required this.projects,
     required this.onChanged,
     this.enabled = true,
+    this.helperText,
   });
 
   final String? value;
   final List<Project> projects;
   final ValueChanged<String?> onChanged;
   final bool enabled;
+  final String? helperText;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final known = value == null || projects.any((p) => p.id == value);
+    final known = value != null && projects.any((p) => p.id == value);
     return DropdownButtonFormField<String>(
-      initialValue: known ? (value ?? noProjectKey) : noProjectKey,
+      key: ValueKey(known ? value : null),
+      initialValue: known ? value : null,
       isExpanded: true,
-      decoration: InputDecoration(labelText: l10n.project),
-      onChanged: enabled
-          ? (v) => onChanged(v == noProjectKey ? null : v)
-          : null,
+      hint: Text(l10n.chooseProject),
+      decoration: InputDecoration(
+        labelText: l10n.project,
+        helperText: helperText,
+        helperMaxLines: 2,
+      ),
+      onChanged: enabled ? onChanged : null,
       items: [
-        DropdownMenuItem(
-          value: noProjectKey,
-          child: Row(
-            children: [
-              const ProjectDot(),
-              const SizedBox(width: 8),
-              Text(l10n.noProject),
-            ],
-          ),
-        ),
         for (final p in projects)
           DropdownMenuItem(
             value: p.id,
@@ -569,122 +632,6 @@ class TypeSwitch extends StatelessWidget {
       selected: {value},
       showSelectedIcon: false,
       onSelectionChanged: onChanged == null ? null : (s) => onChanged!(s.first),
-    );
-  }
-}
-
-/// Week total with Work and Standby and seven day bars (spec §5.1).
-class _WeekSummary extends ConsumerWidget {
-  const _WeekSummary({required this.entries});
-
-  final List<TimeEntry> entries;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    final ctx = ref.watch(workContextProvider)!;
-    final now = DateTime.now();
-    final week = weekRange(now, weekStart: ctx.settings.weekStart);
-    final inWeek = entries.where((e) => week.contains(e.start));
-    final totals = totalsOf(inWeek);
-    final bars = weekBars(inWeek, week);
-    final maxMin = bars.fold(60, (m, b) => b.totalMin > m ? b.totalMin : m);
-    final theme = Theme.of(context);
-    final status = context.statusColors;
-    String dayName(DateTime d) =>
-        MaterialLocalizations.of(context).narrowWeekdays[d.weekday % 7];
-
-    Widget figure(String label, int minutes, Color? color) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            if (color != null) ...[
-              Container(width: 10, height: 10, color: color),
-              const SizedBox(width: 6),
-            ],
-            Text(label, style: theme.textTheme.labelMedium),
-          ],
-        ),
-        Text(
-          formatHoursMinutes(minutes),
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontFeatures: tabularFigures,
-          ),
-        ),
-      ],
-    );
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.thisWeek, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 24,
-                runSpacing: 8,
-                children: [
-                  figure(l10n.total, totals.totalMin, null),
-                  figure(l10n.typeWork, totals.workMin, status.work),
-                  figure(l10n.typeStandby, totals.standbyMin, status.standby),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Semantics(
-                label: l10n.weekChartLabel,
-                child: SizedBox(
-                  height: 96,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      for (final b in bars)
-                        Expanded(
-                          child: Tooltip(
-                            message:
-                                '${dayLabel(context, b.day)}: ${formatHoursMinutes(b.totalMin)}',
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Container(
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                  ),
-                                  height: 72 * b.standbyMin / maxMin,
-                                  color: status.standby,
-                                ),
-                                Container(
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                  ),
-                                  height: 72 * b.workMin / maxMin,
-                                  color: status.work,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  dayName(b.day),
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    fontWeight: dateOnly(now) == b.day
-                                        ? FontWeight.bold
-                                        : null,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

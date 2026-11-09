@@ -139,16 +139,13 @@ Tests:
 
 ## 8. Invite emails (optional)
 
-The invited person does not need the code when they sign in with the invited Google account: the app lists their invitations with a **Join** button (D-043). The code stays as a fallback. To also email the invitation, install the **Trigger Email** extension:
+The invited person does not need the code when they sign in with the invited Google account: the app lists their invitations with a **Join** button (D-043). The code stays as a fallback. Invite emails are sent by our own function `sendMail` through Gmail as `infostandwise@gmail.com` (D-045); it only needs that account's app password:
 
-1. Gmail as the sender (simplest, up to ~500 emails a day): on the Google account of the sender address turn on **2-Step Verification**, then create an **App password** at <https://myaccount.google.com/apppasswords> (name it "Standwise"). Keep the 16-letter password for step 4 only; never paste it anywhere else.
-2. Firebase console → **Extensions** → **Trigger Email from Firestore** (`firebase/firestore-send-email`) → Install in `standwise-dev`.
-3. **Email documents collection:** `mail`. **Firestore location:** the database's (`eur3`). **Cloud Functions location:** `europe-west1`.
-4. **SMTP connection URI:** `smtps://SENDER@gmail.com@smtp.gmail.com:465` (your sender address), **SMTP password:** the app password from step 1 (stored as a Secret Manager secret). **Default FROM:** `Standwise <SENDER@gmail.com>`.
+1. On the Google account `infostandwise@gmail.com` turn on **2-Step Verification**, then create an **App password** at <https://myaccount.google.com/apppasswords> (name it "Standwise").
+2. In a terminal in the repository folder run `firebase functions:secrets:set SMTP_PASSWORD --project standwise-dev` and paste the 16-letter password (without spaces) when it asks. It goes to Secret Manager; never paste it anywhere else.
+3. Deploy the functions (`firebase deploy --only functions --project standwise-dev`).
 
-A dedicated provider (Brevo, SendGrid) works the same way with its own SMTP URI and key.
-
-Already queued invites are sent once the extension is running. Without it the documents just stay in `mail`.
+Each new document in `mail` is sent once; its `delivery.state` becomes `SUCCESS` (and the body with the code is removed) or `ERROR` with the reason. To send again, use **Resend** on the invite. To change the password later, repeat step 2 and deploy again.
 
 ## 9. Scheduled cleanup
 

@@ -25,3 +25,4 @@ export {
 } from './members/members.ts';
 export { deleteAccount } from './account/delete_account.ts';
 export { onEntryWritten, purgeDeletedEntries } from './summaries/triggers.ts';
+export { sendMail } from './mail/send_mail.ts';

@@ -24,6 +24,7 @@ enum AppErrorCode {
   notOwner,
   ownerMustTransfer,
   nameMismatch,
+  projectRequired,
   unknown,
 }
 

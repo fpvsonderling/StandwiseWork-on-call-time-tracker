@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:standwise/app/tracker_prefs.dart';
 import 'package:standwise/data/providers.dart';
 import 'package:standwise/domain/models.dart';
 import 'package:standwise/domain/projects.dart';
@@ -93,7 +94,54 @@ void main() {
     expect(e.description, 'Inventory');
     expect(e.durationMin, 8 * 60);
     expect(e.start.hour, 8);
-    expect(e.projectId, isNull);
+    // The only active project is picked automatically.
+    expect(e.projectId, 'p1');
+  });
+
+  testWidgets('without a project nothing can be started or added', (
+    tester,
+  ) async {
+    projects.projects.clear();
+    await pump(tester);
+    expect(
+      find.text('No projects yet. Add one in Projects first.'),
+      findsOneWidget,
+    );
+    final start = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Start'),
+    );
+    expect(start.onPressed, isNull);
+    expect(find.text('No project'), findsNothing);
+  });
+
+  testWidgets('remembers the last mode and project', (tester) async {
+    projects.projects.add(
+      const Project(id: 'p2', name: 'Clinic', color: 0xFF43A047),
+    );
+    final prefs = MemoryTrackerPrefs({
+      TrackerPrefKeys.mode: 'manual',
+      TrackerPrefKeys.project('o1'): 'p2',
+    });
+    await pumpApp(
+      tester,
+      overrides: [
+        entriesRepositoryProvider.overrideWithValue(entries),
+        projectsRepositoryProvider.overrideWithValue(projects),
+      ],
+      prefs: prefs,
+    );
+    expect(find.widgetWithText(FilledButton, 'Add'), findsOneWidget);
+    expect(find.text('Clinic'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+    await tester.pumpAndSettle();
+    expect(entries.entries.single.projectId, 'p2');
+
+    await pickProject(tester, 'Hospital');
+    await tester.tap(find.byIcon(Icons.timer_outlined).first);
+    await tester.pumpAndSettle();
+    expect(prefs.values[TrackerPrefKeys.project('o1')], 'p1');
+    expect(prefs.values[TrackerPrefKeys.mode], 'timer');
   });
 
   testWidgets('delete shows Undo, which brings the entry back', (tester) async {

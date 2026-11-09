@@ -320,16 +320,94 @@ String entriesCsv({
   return '﻿${lines.join('\r\n')}\r\n';
 }
 
+/// One row of the Team people table and the team summary CSV: a person's
+/// hours on one project (spec §5.5, D-044). A person without hours in the
+/// range gets one row with [hasHours] false.
+class TeamRow {
+  const TeamRow({
+    required this.uid,
+    required this.projectId,
+    required this.totals,
+    required this.hasHours,
+  });
+
+  final String uid;
+
+  /// `null` for entries without a project (or a person without hours).
+  final String? projectId;
+  final Totals totals;
+  final bool hasHours;
+}
+
+typedef PersonProjectTotals = Map<String, Map<String?, Totals>>;
+
+PersonProjectTotals cellTotalsByPersonProject(Iterable<ReportCell> cells) {
+  final m = <String, Map<String?, Totals>>{};
+  for (final c in cells) {
+    (m[c.uid] ??= {}).putIfAbsent(c.projectId, Totals.new).addCell(c);
+  }
+  return m;
+}
+
+PersonProjectTotals entryTotalsByPersonProject(Iterable<TimeEntry> entries) {
+  final m = <String, Map<String?, Totals>>{};
+  for (final e in entries) {
+    (m[e.uid] ??= {}).putIfAbsent(e.projectId, Totals.new).add(e);
+  }
+  return m;
+}
+
+/// Rows for [uids] in order, then anyone else with hours; within a person
+/// one row per project, sorted by [projectName].
+List<TeamRow> teamRows({
+  required List<String> uids,
+  required PersonProjectTotals totals,
+  required String Function(String? projectId) projectName,
+}) {
+  final order = [...uids, ...totals.keys.where((u) => !uids.contains(u))];
+  final rows = <TeamRow>[];
+  for (final uid in order) {
+    final byProject = totals[uid] ?? const <String?, Totals>{};
+    if (byProject.isEmpty) {
+      rows.add(
+        TeamRow(uid: uid, projectId: null, totals: Totals(), hasHours: false),
+      );
+      continue;
+    }
+    final ids = byProject.keys.toList()
+      ..sort(
+        (a, b) =>
+            projectName(a)
+                .toLowerCase()
+                .compareTo(projectName(b).toLowerCase()),
+      );
+    for (final id in ids) {
+      rows.add(
+        TeamRow(
+          uid: uid,
+          projectId: id,
+          totals: byProject[id]!,
+          hasHours: true,
+        ),
+      );
+    }
+  }
+  return rows;
+}
+
 /// Column titles of the team summary export.
 class TeamCsvLabels {
   const TeamCsvLabels({
     required this.person,
     required this.email,
+    required this.project,
     required this.work,
     required this.standby,
     required this.total,
     required this.hours,
     required this.entries,
+    required this.workRate,
+    required this.standbyRate,
     required this.amount,
     required this.totalRow,
     required this.formerMember,
@@ -337,68 +415,96 @@ class TeamCsvLabels {
 
   final String person;
   final String email;
+  final String project;
   final String work;
   final String standby;
   final String total;
   final String hours;
   final String entries;
+  final String workRate;
+  final String standbyRate;
   final String amount;
   final String totalRow;
   final String formerMember;
 }
 
-/// The Team view's People table as CSV (spec §5.5): one row per person in
-/// [uids] order (zeros included), then a Total row. Work, Standby and Total
-/// as h:mm like on screen, plus total decimal hours for spreadsheets.
+/// The Team view's People table as CSV (spec §5.5, D-044): one row per
+/// person and project ([teamRows]), people without hours included, then a
+/// Total row. Work, Standby and Total as h:mm like on screen, plus total
+/// decimal hours; the rates are the member's current ones for the project.
 String teamSummaryCsv({
   required List<String> uids,
   required Iterable<TimeEntry> entries,
   required Map<String, CsvPerson> people,
+  required Map<String, Map<String, ProjectRate>> rates,
+  required String Function(String? projectId) projectName,
   required OrgSettings settings,
   required TeamCsvLabels labels,
 }) {
   final sep = settings.csvSeparator;
   final dec = settings.csvDecimal;
   String cell(String v) => _csvCell(v, sep);
-  final byPerson = <String, Totals>{};
-  for (final e in entries) {
-    (byPerson[e.uid] ??= Totals()).add(e);
-  }
-  final order = [...uids, ...byPerson.keys.where((u) => !uids.contains(u))];
-  List<String> figures(Totals t) => [
+  String money(int? minor) => minor == null || minor == 0
+      ? ''
+      : formatMinorPlain(minor, decimalMark: dec);
+  final rows = teamRows(
+    uids: uids,
+    totals: entryTotalsByPersonProject(entries),
+    projectName: projectName,
+  );
+  List<String> hours(Totals t) => [
     formatHoursMinutes(t.workMin),
     formatHoursMinutes(t.standbyMin),
     formatHoursMinutes(t.totalMin),
     formatDecimalHours(t.totalMin, decimalMark: dec),
     '${t.count}',
-    formatMinorPlain(t.amountMinor, decimalMark: dec),
   ];
   final lines = <String>[
     [
       labels.person,
       labels.email,
+      labels.project,
       labels.work,
       labels.standby,
       labels.total,
       labels.hours,
       labels.entries,
+      labels.workRate,
+      labels.standbyRate,
       labels.amount,
     ].map(cell).join(sep),
   ];
   final all = Totals();
-  for (final uid in order) {
-    final t = byPerson[uid] ?? Totals();
-    all.addTotals(t);
-    final p = people[uid];
+  for (final r in rows) {
+    all.addTotals(r.totals);
+    final p = people[r.uid];
+    final personRates = rates[r.uid];
+    final rate = r.hasHours && personRates != null
+        ? personRates[r.projectId ?? noProjectKey]
+        : null;
     lines.add(
       [
         p == null ? labels.formerMember : '${p.firstName} ${p.lastName}'.trim(),
         p?.email ?? '',
-        ...figures(t),
+        r.hasHours ? projectName(r.projectId) : '',
+        ...hours(r.totals),
+        money(rate?.workRateMinor),
+        money(rate?.standbyRateMinor),
+        formatMinorPlain(r.totals.amountMinor, decimalMark: dec),
       ].map(cell).join(sep),
     );
   }
-  lines.add([labels.totalRow, '', ...figures(all)].map(cell).join(sep));
+  lines.add(
+    [
+      labels.totalRow,
+      '',
+      '',
+      ...hours(all),
+      '',
+      '',
+      formatMinorPlain(all.amountMinor, decimalMark: dec),
+    ].map(cell).join(sep),
+  );
   return '\uFEFF${lines.join('\r\n')}\r\n';
 }
 
