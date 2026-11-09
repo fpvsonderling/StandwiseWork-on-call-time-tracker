@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-09
+
+First test release for Android, Windows, iPhone, iPad and Mac.
+
 ### Changed
 - Invite email: no `standwise://` link and a Reply-To header, so it is less likely to land in spam.
 - Timer: no week chart (see My reports), project picker first, a project is required to start, add or save, and the last mode and project are remembered.
