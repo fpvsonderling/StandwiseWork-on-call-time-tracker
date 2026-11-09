@@ -6,7 +6,12 @@ This policy explains what data the Standwise app ("Standwise", "we") collects, w
 
 ## Who is responsible
 
-The controller of your personal data is [OPERATOR NAME]. You can reach us at [CONTACT EMAIL].
+The controller of your personal data is:
+
+- **Pavlo Yavorskyi Video Grill FPV**
+- Szczecin, Poland
+- NIP (tax ID): 5961750822
+- Email: biurovideogrill@gmail.com
 
 If your employer or another organization invited you to Standwise, that organization decides what time data it asks you to record and uses the reports for its own purposes (for example payroll). For that use, the organization is the controller and we process the data on its behalf.
 
@@ -47,7 +52,7 @@ We do not collect your location, contacts, photos or health data. We show no ads
 
 ## Your rights
 
-Under the GDPR you can ask for access to your data, correction, deletion, restriction, data portability (you can also export your own entries to CSV in the app), and you can object to processing based on legitimate interest. Write to [CONTACT EMAIL]. If you think we handle your data unlawfully, you can complain to a supervisory authority; in Poland this is the President of the Personal Data Protection Office (UODO), ul. Stawki 2, 00-193 Warszawa.
+Under the GDPR you can ask for access to your data, correction, deletion, restriction, data portability (you can also export your own entries to CSV in the app), and you can object to processing based on legitimate interest. Write to biurovideogrill@gmail.com. If you think we handle your data unlawfully, you can complain to a supervisory authority; in Poland this is the President of the Personal Data Protection Office (UODO), ul. Stawki 2, 00-193 Warszawa.
 
 ## Children
 

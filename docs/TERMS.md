@@ -2,7 +2,7 @@
 
 Last updated: 9 November 2026
 
-These terms apply to your use of the Standwise app and service ("Standwise"), provided by [OPERATOR NAME] ("we"). By signing in you accept them. If you use Standwise on behalf of an organization, you confirm that you may accept these terms for it.
+These terms apply to your use of the Standwise app and service ("Standwise"), provided by Pavlo Yavorskyi Video Grill FPV, Szczecin, Poland, NIP 5961750822 ("we"). By signing in you accept them. If you use Standwise on behalf of an organization, you confirm that you may accept these terms for it.
 
 ## The service
 
@@ -33,7 +33,7 @@ We may suspend accounts or organizations that break these rules.
 
 ## Your data
 
-Your data remains yours (or your organization's). We use it only to provide the service, as described in the [Privacy Policy](PRIVACY.md). You can export your entries to CSV and delete your account at any time in Settings.
+Your data remains yours (or your organization's). We use it only to provide the service, as described in the Privacy Policy (Settings → About → Privacy policy). You can export your entries to CSV and delete your account at any time in Settings.
 
 ## Pricing
 
@@ -57,4 +57,4 @@ We may update these terms. We will change the date at the top and announce signi
 
 ## Law and contact
 
-These terms are governed by Polish law. Mandatory consumer protection rules of your country remain unaffected. Questions: [CONTACT EMAIL].
+These terms are governed by Polish law. Mandatory consumer protection rules of your country remain unaffected. Questions: biurovideogrill@gmail.com.
