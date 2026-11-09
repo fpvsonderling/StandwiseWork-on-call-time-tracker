@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+    # A version tag (v0.1.0) also publishes a release (D-046).
+    tags: ['v*']
   workflow_dispatch:
 
 concurrency:
@@ -205,7 +207,7 @@ jobs:
   # Fixed download links for testers: Releases → "dev-latest".
   publish-dev:
     name: Publish dev-latest
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main'
     needs: [build-android, build-windows]
     runs-on: ubuntu-latest
     permissions:
@@ -235,3 +237,65 @@ jobs:
 
             **Windows:** download `Standwise-dev-windows.zip`, unzip it and run `Standwise\standwise.exe`.
             **Android:** download `Standwise-dev.apk` on the phone and install it (allow installs from this source).
+
+  # Versioned release for a v* tag (D-046): Android and Windows downloads on
+  # the Releases page; iOS and macOS go to TestFlight from apple.yml, which
+  # the same tag starts.
+  publish-release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Standwise-dev-windows
+          path: Standwise
+      - uses: actions/download-artifact@v4
+        with:
+          name: Standwise-dev-android
+          path: .
+      - name: Files and notes
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          ver="${TAG#v}"
+          zip -qr "Standwise-$ver-windows.zip" Standwise
+          mv Standwise-dev.apk "Standwise-$ver-android.apk"
+          # The CHANGELOG section of this version, if there is one.
+          awk -v v="$ver" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > changes.md
+          {
+            echo "## Download"
+            echo
+            echo "| Platform | How to install |"
+            echo "|---|---|"
+            echo "| **Android** | Download \`Standwise-$ver-android.apk\` on the phone and open it (allow installs from this source). |"
+            echo "| **Windows** | Download \`Standwise-$ver-windows.zip\`, unzip it and run \`Standwise\\standwise.exe\`. |"
+            echo "| **iPhone / iPad** | Through **TestFlight**: ask the owner for an invite, install TestFlight from the App Store and open the invite. |"
+            echo "| **Mac** | Through **TestFlight for Mac**, the same way as on iPhone. |"
+            echo
+            echo "Sign in with your Google account. If you were invited to a company, the invitation shows up with a **Join** button."
+            if [ -s changes.md ]; then
+              echo
+              echo "## What's new"
+              cat changes.md
+            fi
+          } > notes.md
+          echo "VERSION=$ver" >> "$GITHUB_ENV"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Standwise ${{ env.VERSION }}
+          prerelease: false
+          make_latest: true
+          body_path: notes.md
+          files: |
+            Standwise-${{ env.VERSION }}-windows.zip
+            Standwise-${{ env.VERSION }}-android.apk
