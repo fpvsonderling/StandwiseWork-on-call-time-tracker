@@ -14,6 +14,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Settings → About no longer links to the source code.
 
 ### Added
+- Invite emails are sent by our own `sendMail` function from infostandwise@gmail.com (Gmail app password in Secret Manager); no Firebase extension needed.
 - Invitations for your email show up in the app with a Join button, no code needed (`listMyInvites`); the invite email explains it.
 - New app icon ("split ring": work and standby arcs around clock hands) on Android, iOS, macOS and Windows.
 - Privacy Policy and Terms of Use, readable in the app from the welcome screen and Settings → About.
