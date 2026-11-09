@@ -95,6 +95,15 @@ void main() {
         projectsRepositoryProvider.overrideWithValue(
           FakeProjectsRepository(
             projects: [const Project(id: 'p1', name: 'Hospital')],
+            memberRates: {
+              'u2': {
+                'p1': const ProjectRate(
+                  projectId: 'p1',
+                  workRateMinor: 6000,
+                  standbyRateMinor: 2500,
+                ),
+              },
+            },
           ),
         ),
       ],
@@ -106,9 +115,14 @@ void main() {
     expect(find.text('Anna Kowalska'), findsWidgets);
     expect(find.text('Bob Nowak'), findsWidgets);
     expect(find.text('Cleo Zielinska'), findsWidgets);
-    // Bob: 2h work + 1h standby this month; last month not counted.
-    expect(find.text('3:00'), findsWidgets);
+    // Bob: 2h work on Hospital and 1h standby without a project this
+    // month, one row each; last month not counted.
+    expect(find.text('Bob Nowak'), findsNWidgets(2)); // one row per project
+    expect(find.text('Hospital'), findsWidgets);
+    expect(find.text('3:00'), findsWidgets); // Total row
     expect(find.textContaining('16:39'), findsNothing);
+    // Bob's current Hospital rates are shown.
+    expect(find.textContaining('25.00'), findsWidgets);
 
     // The team CSV is the People table with a Total row.
     await tester.tap(find.text('Export team CSV'));
@@ -116,16 +130,23 @@ void main() {
     final (name, csv) = saver.saved.single;
     expect(name, startsWith('standwise-team-summary-'));
     final rows = csv.substring(1).split('\r\n');
-    expect(rows.first, 'Person,Email,Work,Standby,Total,Hours,Entries,Amount');
     expect(
-      rows,
-      contains('Bob Nowak,bob@example.com,2:00,0:00,2:00,2.00,1,120.00'),
+      rows.first,
+      'Person,Email,Project,Work,Standby,Total,Hours,Entries,'
+      'Work rate,Standby rate,Amount',
     );
     expect(
       rows,
-      contains('Cleo Zielinska,cleo@example.com,0:00,0:00,0:00,0.00,0,0.00'),
+      contains(
+        'Bob Nowak,bob@example.com,Hospital,2:00,0:00,2:00,2.00,1,'
+        '60.00,25.00,120.00',
+      ),
     );
-    expect(rows, contains('Total,,2:00,0:00,2:00,2.00,1,120.00'));
+    expect(
+      rows,
+      contains('Cleo Zielinska,cleo@example.com,,0:00,0:00,0:00,0.00,0,,,0.00'),
+    );
+    expect(rows, contains('Total,,,2:00,0:00,2:00,2.00,1,,,120.00'));
 
     await tester.tap(find.text('Bob Nowak').last);
     await tester.pumpAndSettle();

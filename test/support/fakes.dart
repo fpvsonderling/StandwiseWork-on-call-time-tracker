@@ -417,6 +417,7 @@ class FakeProjectsRepository implements ProjectsRepository {
   FakeProjectsRepository({
     List<Project>? projects,
     Map<String, ProjectRate>? rates,
+    this.memberRates = const {},
   }) : projects = [...?projects],
        rates = {...?rates};
 
@@ -424,6 +425,9 @@ class FakeProjectsRepository implements ProjectsRepository {
 
   /// The signed-in member's rates.
   final Map<String, ProjectRate> rates;
+
+  /// Other members' rates by uid (what admins read on Team).
+  final Map<String, Map<String, ProjectRate>> memberRates;
   final _changes = StreamController<void>.broadcast();
   var _ids = 0;
 
@@ -448,7 +452,7 @@ class FakeProjectsRepository implements ProjectsRepository {
 
   @override
   Stream<Map<String, ProjectRate>> watchRates(String orgId, String uid) =>
-      watchValue(() => {...rates}, _changes.stream);
+      watchValue(() => {...memberRates[uid] ?? rates}, _changes.stream);
 
   @override
   Future<void> saveRate(String orgId, String uid, ProjectRate rate) async {

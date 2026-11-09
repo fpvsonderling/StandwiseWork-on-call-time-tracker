@@ -5,9 +5,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Changed
+- Timer: no week chart (see My reports), project picker first, a project is required to start, add or save, and the last mode and project are remembered.
+- Team: the people table and team CSV show one row per person and project, with the member's work and standby rates.
 - TestFlight builds run on demand or for version tags instead of on every push to `main`.
 
 ### Removed
+- "No project" is no longer offered for new entries (old entries keep it).
 - Settings → About no longer links to the source code.
 
 ### Added

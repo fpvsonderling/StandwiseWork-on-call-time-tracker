@@ -54,6 +54,9 @@ class TimerActions {
     DateTime? now,
   }) {
     final ctx = _ctx;
+    if (projectId == null) {
+      throw const AppException(AppErrorCode.projectRequired);
+    }
     final at = now ?? DateTime.now();
     final running = _ref.read(timerProvider).value;
     return _ref
@@ -132,6 +135,9 @@ class TimerActions {
     required EntryType type,
   }) {
     final ctx = _ctx;
+    if (projectId == null) {
+      throw const AppException(AppErrorCode.projectRequired);
+    }
     final repo = _ref.read(entriesRepositoryProvider);
     return repo.addEntry(
       ctx.orgId,

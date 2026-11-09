@@ -155,12 +155,6 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
         children: [
           Text(l10n.entryEdit, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16),
-          TextField(
-            controller: _description,
-            maxLength: 500,
-            decoration: InputDecoration(labelText: l10n.description),
-          ),
-          const SizedBox(height: 8),
           ProjectPicker(
             value: _projectId,
             projects: [
@@ -171,6 +165,12 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
               setState(() => _projectId = v);
               _refreshRate();
             },
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _description,
+            maxLength: 500,
+            decoration: InputDecoration(labelText: l10n.description),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -275,7 +275,9 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
               ),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: spanError == null ? _save : null,
+                onPressed: spanError == null && _projectId != null
+                    ? _save
+                    : null,
                 child: Text(l10n.save),
               ),
             ],

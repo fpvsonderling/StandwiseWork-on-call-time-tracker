@@ -8,6 +8,7 @@ import '../../data/providers.dart';
 import '../../domain/date_ranges.dart';
 import '../../domain/durations.dart';
 import '../../domain/models.dart';
+import '../../domain/projects.dart';
 import '../../domain/reports.dart';
 import '../common/csv_export.dart';
 import '../common/format.dart';
@@ -72,7 +73,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
     final cells = _person == null
         ? projectCells
         : projectCells.where((c) => c.uid == _person).toList();
-    final perPerson = totalsByPerson(projectCells);
+    final perPerson = cellTotalsByPersonProject(projectCells);
 
     // Everyone active, plus anyone else with hours in the range.
     final uids = {
@@ -87,6 +88,12 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
 
     final people = uids.toList()
       ..sort((a, b) => sortKey(a).compareTo(sortKey(b)));
+    String projectNameOf(String? id) => projectLabel(l10n, projects[id], id);
+    // Each person's current rates; admins may read them (firestore.rules).
+    final rates = <String, Map<String, ProjectRate>>{
+      for (final uid in people)
+        uid: ref.watch(memberRatesProvider((ctx.orgId, uid))).value ?? const {},
+    };
 
     Future<void> export({required bool summary}) async {
       setState(() => _exporting = true);
@@ -115,10 +122,15 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                 uids: _person == null ? people : [_person!],
                 entries: entries,
                 people: csvPeople,
+                rates: rates,
+                projectName: projectNameOf,
                 settings: ctx.settings,
                 labels: TeamCsvLabels(
                   person: l10n.person,
                   email: l10n.csvEmail,
+                  project: l10n.project,
+                  workRate: l10n.workRate,
+                  standbyRate: l10n.standbyRate,
                   work: l10n.typeWork,
                   standby: l10n.typeStandby,
                   total: l10n.total,
@@ -213,9 +225,14 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
           SectionHeader(l10n.teamPeople),
           Card(
             child: _PeopleTable(
-              people: people,
-              totals: perPerson,
+              rows: teamRows(
+                uids: people,
+                totals: perPerson,
+                projectName: projectNameOf,
+              ),
+              rates: rates,
               nameOf: nameOf,
+              projectName: projectNameOf,
               selected: _person,
               currency: ctx.currency,
               onSelect: (uid) =>
@@ -301,20 +318,24 @@ class _PersonFilter extends StatelessWidget {
   }
 }
 
-/// Name, Work, Standby, Total, Entries, Amount and a Total row.
+/// One row per person and project (a person without hours once, with
+/// "—"): Work, Standby, Total, Entries, the member's current rates, Amount,
+/// and a Total row (D-044).
 class _PeopleTable extends StatelessWidget {
   const _PeopleTable({
-    required this.people,
-    required this.totals,
+    required this.rows,
+    required this.rates,
     required this.nameOf,
+    required this.projectName,
     required this.selected,
     required this.currency,
     required this.onSelect,
   });
 
-  final List<String> people;
-  final Map<String, Totals> totals;
+  final List<TeamRow> rows;
+  final Map<String, Map<String, ProjectRate>> rates;
   final String Function(String) nameOf;
+  final String Function(String?) projectName;
   final String? selected;
   final String currency;
   final ValueChanged<String> onSelect;
@@ -328,16 +349,21 @@ class _PeopleTable extends StatelessWidget {
       fontWeight: FontWeight.bold,
     );
     final all = Totals();
-    for (final uid in people) {
-      final t = totals[uid];
-      if (t != null) all.addTotals(t);
+    for (final r in rows) {
+      all.addTotals(r.totals);
     }
+    ProjectRate? rateOf(TeamRow r) {
+      if (!r.hasHours) return null;
+      return rates[r.uid]?[r.projectId ?? noProjectKey];
+    }
+
+    String rateText(int? minor) =>
+        minor == null || minor == 0 ? '—' : money(context, minor, currency);
     List<DataCell> figures(Totals t, TextStyle style) => [
       DataCell(Text(formatHoursMinutes(t.workMin), style: style)),
       DataCell(Text(formatHoursMinutes(t.standbyMin), style: style)),
       DataCell(Text(formatHoursMinutes(t.totalMin), style: style)),
       DataCell(Text('${t.count}', style: style)),
-      DataCell(Text(money(context, t.amountMinor, currency), style: style)),
     ];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -346,26 +372,46 @@ class _PeopleTable extends StatelessWidget {
         columnSpacing: 24,
         columns: [
           DataColumn(label: Text(l10n.person)),
+          DataColumn(label: Text(l10n.project)),
           DataColumn(label: Text(l10n.typeWork), numeric: true),
           DataColumn(label: Text(l10n.typeStandby), numeric: true),
           DataColumn(label: Text(l10n.total), numeric: true),
           DataColumn(label: Text(l10n.entries), numeric: true),
+          DataColumn(label: Text(l10n.workRate), numeric: true),
+          DataColumn(label: Text(l10n.standbyRate), numeric: true),
           DataColumn(label: Text(l10n.amount), numeric: true),
         ],
         rows: [
-          for (final uid in people)
+          for (final r in rows)
             DataRow(
-              selected: uid == selected,
-              onSelectChanged: (_) => onSelect(uid),
+              selected: r.uid == selected,
+              onSelectChanged: (_) => onSelect(r.uid),
               cells: [
-                DataCell(Text(nameOf(uid))),
-                ...figures(totals[uid] ?? Totals(), num),
+                DataCell(Text(nameOf(r.uid))),
+                DataCell(Text(r.hasHours ? projectName(r.projectId) : '—')),
+                ...figures(r.totals, num),
+                DataCell(Text(rateText(rateOf(r)?.workRateMinor), style: num)),
+                DataCell(
+                  Text(rateText(rateOf(r)?.standbyRateMinor), style: num),
+                ),
+                DataCell(
+                  Text(
+                    money(context, r.totals.amountMinor, currency),
+                    style: num,
+                  ),
+                ),
               ],
             ),
           DataRow(
             cells: [
               DataCell(Text(l10n.total, style: bold)),
+              const DataCell(Text('')),
               ...figures(all, bold),
+              const DataCell(Text('')),
+              const DataCell(Text('')),
+              DataCell(
+                Text(money(context, all.amountMinor, currency), style: bold),
+              ),
             ],
           ),
         ],

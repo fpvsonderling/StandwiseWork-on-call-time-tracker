@@ -65,7 +65,6 @@ class ProjectsScreen extends ConsumerWidget {
               ),
             ),
           for (final p in active) row(p),
-          row(null),
           if (ctx.isAdmin && archived.isNotEmpty) ...[
             SectionHeader(l10n.projectsArchived(archived.length)),
             for (final p in archived) row(p),

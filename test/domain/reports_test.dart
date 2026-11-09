@@ -202,14 +202,22 @@ void main() {
     expect(currentRate(rates, 'p2', EntryType.work), 0);
   });
 
-  test('team summary CSV: one row per person, zeros included, Total row', () {
+  test('team summary CSV: a row per person and project, zeros, Total', () {
     final d = DateTime(2026, 11, 2, 8);
     final csv = teamSummaryCsv(
       uids: ['u2', 'u1', 'u3'],
       entries: [
-        _e('a', d, 120, uid: 'u1'),
-        _e('b', d, 90, uid: 'u1', type: EntryType.standby, rate: 2000),
-        _e('c', d, 60, uid: 'u2'),
+        _e('a', d, 120, uid: 'u1', project: 'p2'),
+        _e(
+          'b',
+          d,
+          90,
+          uid: 'u1',
+          type: EntryType.standby,
+          rate: 2000,
+          project: 'p1',
+        ),
+        _e('c', d, 60, uid: 'u2', project: 'p1'),
         _e('x', d, 30, uid: 'gone'),
       ],
       people: {
@@ -217,15 +225,32 @@ void main() {
         'u2': (firstName: 'Bob', lastName: 'Nowak', email: 'b@x.pl'),
         'u3': (firstName: 'Cleo', lastName: 'Lis', email: 'c@x.pl'),
       },
+      rates: {
+        'u1': {
+          'p1': const ProjectRate(
+            projectId: 'p1',
+            workRateMinor: 6000,
+            standbyRateMinor: 2000,
+          ),
+        },
+      },
+      projectName: (id) => switch (id) {
+        'p1' => 'Alpha',
+        'p2' => 'Beta',
+        _ => 'No project',
+      },
       settings: const OrgSettings(csvSeparator: ';', csvDecimal: ','),
       labels: const TeamCsvLabels(
         person: 'Person',
         email: 'Email',
+        project: 'Project',
         work: 'Work',
         standby: 'Standby',
         total: 'Total',
         hours: 'Hours',
         entries: 'Entries',
+        workRate: 'Work rate',
+        standbyRate: 'Standby rate',
         amount: 'Amount',
         totalRow: 'Total',
         formerMember: 'Former member',
@@ -233,12 +258,14 @@ void main() {
     );
     expect(csv.startsWith('\uFEFF'), isTrue);
     expect(csv.substring(1).split('\r\n'), [
-      'Person;Email;Work;Standby;Total;Hours;Entries;Amount',
-      'Bob Nowak;b@x.pl;1:00;0:00;1:00;1,00;1;60,00',
-      'Anna Kowalska;a@x.pl;2:00;1:30;3:30;3,50;2;150,00',
-      'Cleo Lis;c@x.pl;0:00;0:00;0:00;0,00;0;0,00',
-      'Former member;;0:30;0:00;0:30;0,50;1;30,00',
-      'Total;;3:30;1:30;5:00;5,00;4;240,00',
+      'Person;Email;Project;Work;Standby;Total;Hours;Entries;'
+          'Work rate;Standby rate;Amount',
+      'Bob Nowak;b@x.pl;Alpha;1:00;0:00;1:00;1,00;1;;;60,00',
+      'Anna Kowalska;a@x.pl;Alpha;0:00;1:30;1:30;1,50;1;60,00;20,00;30,00',
+      'Anna Kowalska;a@x.pl;Beta;2:00;0:00;2:00;2,00;1;;;120,00',
+      'Cleo Lis;c@x.pl;;0:00;0:00;0:00;0,00;0;;;0,00',
+      'Former member;;No project;0:30;0:00;0:30;0,50;1;;;30,00',
+      'Total;;;3:30;1:30;5:00;5,00;4;;;240,00',
       '',
     ]);
   });

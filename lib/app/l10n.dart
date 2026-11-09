@@ -37,6 +37,7 @@ extension AppErrorText on AppLocalizations {
       AppErrorCode.notOwner => errorNotOwner,
       AppErrorCode.ownerMustTransfer => errorOwnerMustTransfer,
       AppErrorCode.nameMismatch => errorNameMismatch,
+      AppErrorCode.projectRequired => errorProjectRequired,
       AppErrorCode.unknown => errorUnknown,
     };
   }
