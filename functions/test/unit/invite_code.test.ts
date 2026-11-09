@@ -52,7 +52,8 @@ describe('invite email', () => {
     assert.ok(mail.message.text.includes('K7M2-9QXP'));
     assert.ok(mail.message.html.includes('&lt;ACME &amp; Co&gt;'));
     assert.ok(!mail.message.html.includes('<ACME'));
-    assert.ok(mail.message.text.includes('standwise://join?code=K7M2-9QXP'));
+    assert.ok(!mail.message.text.includes('standwise://'), 'no custom-scheme links');
+    assert.ok(!mail.message.html.includes('standwise://'));
   });
 });
 
