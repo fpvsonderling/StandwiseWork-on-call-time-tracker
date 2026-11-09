@@ -8,7 +8,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Settings → About no longer links to the source code.
 
 ### Added
-- New app icon (clock face with work and standby halves and a smiling worker) on Android, iOS, macOS and Windows.
+- New app icon ("split ring": work and standby arcs around clock hands) on Android, iOS, macOS and Windows.
 - Privacy Policy and Terms of Use, readable in the app from the welcome screen and Settings → About.
 - Team: "Export team CSV" now exports the People table (per-person totals and a Total row); "Export all entries" keeps the detailed export.
 - Signed iOS and macOS builds uploaded to TestFlight from CI on every push to `main`; Google sign-in URL scheme on iOS and macOS.
