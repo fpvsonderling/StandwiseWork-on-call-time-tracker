@@ -234,6 +234,24 @@ class Invite {
 }
 
 /// A freshly created or resent invite code, shown once to the admin.
+/// An invitation for the signed-in user's email (from `listMyInvites`), so
+/// they can join without typing the code.
+class MyInvite {
+  const MyInvite({
+    required this.orgId,
+    required this.inviteId,
+    required this.orgName,
+    required this.inviterName,
+    required this.role,
+  });
+
+  final String orgId;
+  final String inviteId;
+  final String orgName;
+  final String inviterName;
+  final OrgRole role;
+}
+
 class InviteCode {
   const InviteCode({required this.code, required this.expiresAt});
 

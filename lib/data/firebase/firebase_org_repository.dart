@@ -107,6 +107,35 @@ class FirebaseOrgRepository implements OrgRepository {
     return r['orgId'] as String;
   }
 
+  @override
+  Future<List<MyInvite>> myInvites() async {
+    final r = await _functions.call('listMyInvites', {});
+    final list = r['invites'];
+    return [
+      for (final i in (list is List ? list : const []))
+        if (i is Map)
+          MyInvite(
+            orgId: i['orgId'] as String,
+            inviteId: i['inviteId'] as String,
+            orgName: i['orgName'] as String? ?? '',
+            inviterName: i['inviterName'] as String? ?? '',
+            role: OrgRole.fromWire(i['role'] as String? ?? ''),
+          ),
+    ];
+  }
+
+  @override
+  Future<String> acceptInviteById({
+    required String orgId,
+    required String inviteId,
+  }) async {
+    final r = await _functions.call('acceptInvite', {
+      'orgId': orgId,
+      'inviteId': inviteId,
+    });
+    return r['orgId'] as String;
+  }
+
   static InviteCode _code(Map<String, dynamic> r) => InviteCode(
     code: r['code'] as String,
     expiresAt: DateTime.parse(r['expiresAt'] as String),

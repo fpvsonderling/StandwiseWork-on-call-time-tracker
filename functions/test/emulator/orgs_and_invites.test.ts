@@ -9,6 +9,7 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import {
   acceptInviteImpl,
   createInviteImpl,
+  listMyInvitesImpl,
   resendInviteImpl,
   revokeInviteImpl,
 } from '../../src/invites/invites.ts';
@@ -52,9 +53,9 @@ beforeEach(async () => {
   await profile(mallory.uid, mallory.email, 'Mal');
 });
 
-async function newOrg() {
+async function newOrg(name = 'ACME') {
   const { orgId } = await createOrganizationImpl(db, owner, {
-    name: 'ACME',
+    name,
     currency: 'PLN',
     timezone: 'Europe/Warsaw',
   });
@@ -134,6 +135,43 @@ describe('invites', () => {
     const { code } = await createInviteImpl(db, owner, { orgId, email: anna.email, role: 'employee' });
     await assert.rejects(acceptInviteImpl(db, mallory, { code }), rejectsWith('invite-email-mismatch'));
     assert.equal((await db.doc(`orgs/${orgId}/members/${mallory.uid}`).get()).exists, false);
+  });
+
+  it('lists my pending invites and joins one without the code', async () => {
+    const orgId = await newOrg();
+    const { inviteId } = await createInviteImpl(db, owner, { orgId, email: anna.email, role: 'employee' });
+
+    const { invites: mine } = await listMyInvitesImpl(db, anna);
+    assert.equal(mine.length, 1);
+    assert.equal(mine[0]!.orgId, orgId);
+    assert.equal(mine[0]!.inviteId, inviteId);
+    assert.equal(mine[0]!.role, 'employee');
+    assert.equal(mine[0]!.inviterName, 'Olga User');
+    assert.deepEqual(await listMyInvitesImpl(db, mallory), { invites: [] });
+
+    // Someone else can't use the invite id either.
+    await assert.rejects(acceptInviteImpl(db, mallory, { orgId, inviteId }), rejectsWith('invite-email-mismatch'));
+    assert.deepEqual(await acceptInviteImpl(db, anna, { orgId, inviteId }), { orgId });
+    assert.equal((await db.doc(`orgs/${orgId}/members/${anna.uid}`).get()).get('role'), 'employee');
+    assert.deepEqual(await listMyInvitesImpl(db, anna), { invites: [] });
+  });
+
+  it('hides expired and revoked invites from the list', async () => {
+    const orgId = await newOrg();
+    const a = await createInviteImpl(db, owner, { orgId, email: anna.email, role: 'employee' });
+    await revokeInviteImpl(db, owner, { orgId, inviteId: a.inviteId });
+    const org2 = await newOrg('Second');
+    const b = await createInviteImpl(db, owner, { orgId: org2, email: anna.email, role: 'employee' });
+    await db.doc(`orgs/${org2}/invites/${b.inviteId}`).update({ expiresAt: Timestamp.fromMillis(Date.now() - 1000) });
+    assert.deepEqual(await listMyInvitesImpl(db, anna), { invites: [] });
+    await assert.rejects(
+      acceptInviteImpl(db, anna, { orgId: org2, inviteId: b.inviteId }),
+      rejectsWith('invite-expired'),
+    );
+    await assert.rejects(
+      acceptInviteImpl(db, anna, { orgId, inviteId: 'nope' }),
+      rejectsWith('invite-not-found'),
+    );
   });
 
   it('rejects unknown, expired, revoked and replaced codes', async () => {
