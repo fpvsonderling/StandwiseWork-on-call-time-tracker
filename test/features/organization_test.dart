@@ -97,6 +97,46 @@ void main() {
     expect(find.text('Employee'), findsOneWidget);
   });
 
+  testWidgets('an invitation for my email joins with one tap, no code', (
+    tester,
+  ) async {
+    final profiles = FakeProfileRepository({'u1': _profile});
+    final orgs = FakeOrgRepository(
+      profiles: profiles,
+      orgs: {
+        'o9': const Organization(
+          id: 'o9',
+          name: 'Night Shift Ltd',
+          status: OrgStatus.active,
+        ),
+      },
+    );
+    orgs.myPendingInvites.add(
+      const MyInvite(
+        orgId: 'o9',
+        inviteId: 'i1',
+        orgName: 'Night Shift Ltd',
+        inviterName: 'Olga Nowak',
+        role: OrgRole.admin,
+      ),
+    );
+    await _pump(tester, profiles: profiles, orgs: orgs);
+
+    expect(find.text('Invitations for you'), findsOneWidget);
+    expect(find.text('Invited by Olga Nowak as Admin'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'Night Shift Ltd'),
+        matching: find.text('Join'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(orgs.calls, contains('acceptInviteById:o9:i1'));
+    expect(find.text('What are you working on?'), findsOneWidget);
+    expect(find.text('Admin'), findsOneWidget);
+  });
+
   testWidgets('the header switches between organizations', (tester) async {
     final profiles = FakeProfileRepository({'u1': _profile});
     final orgs = FakeOrgRepository(

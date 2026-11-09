@@ -148,6 +148,9 @@ class FakeOrgRepository implements OrgRepository {
   /// Code -> orgId accepted by [acceptInvite].
   final validCodes = <String, String>{};
 
+  /// Returned by [myInvites]; joining one removes it.
+  final myPendingInvites = <MyInvite>[];
+
   Stream<T> _watch<T>(T Function() read) async* {
     yield read();
     await for (final _ in _changes.stream) {
@@ -203,6 +206,24 @@ class FakeOrgRepository implements OrgRepository {
       throw const AppException(AppErrorCode.inviteNotFound);
     }
     _memberships.add(membershipOf(orgId, role: OrgRole.employee));
+    await profiles?.setLastOrg(uid: 'u1', orgId: orgId);
+    _changes.add(null);
+    return orgId;
+  }
+
+  @override
+  Future<List<MyInvite>> myInvites() async => [...myPendingInvites];
+
+  @override
+  Future<String> acceptInviteById({
+    required String orgId,
+    required String inviteId,
+  }) async {
+    calls.add('acceptInviteById:$orgId:$inviteId');
+    _check();
+    final invite = myPendingInvites.firstWhere((i) => i.inviteId == inviteId);
+    myPendingInvites.remove(invite);
+    _memberships.add(membershipOf(orgId, role: invite.role));
     await profiles?.setLastOrg(uid: 'u1', orgId: orgId);
     _changes.add(null);
     return orgId;

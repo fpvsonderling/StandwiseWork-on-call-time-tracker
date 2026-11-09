@@ -129,6 +129,14 @@
   "errorUnknown": "Something went wrong.",
   "orgChoiceTitle": "Your organization",
   "orgChoiceIntro": "Join your company with the invite code from your email, or create a new organization if you are setting Standwise up for your team.",
+  "orgInvitesTitle": "Invitations for you",
+  "orgInviteFrom": "Invited by {name} as {role}",
+  "@orgInviteFrom": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "role": {"type": "String"}
+    }
+  },
   "orgJoinTitle": "Join with an invite code",
   "orgJoinCode": "Invite code",
   "orgJoinCodeHint": "e.g. K7M2-9QXP",

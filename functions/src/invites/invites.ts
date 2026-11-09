@@ -1,4 +1,10 @@
-import { FieldValue, Timestamp, getFirestore, type Firestore } from 'firebase-admin/firestore';
+import {
+  FieldValue,
+  Timestamp,
+  getFirestore,
+  type DocumentReference,
+  type Firestore,
+} from 'firebase-admin/firestore';
 import { z } from 'zod';
 
 import { requireActiveAdmin } from '../lib/access.ts';
@@ -22,7 +28,20 @@ export const createInviteInput = z.object({
   role: z.enum(['employee', 'admin']),
 });
 export const inviteRefInput = z.object({ orgId, inviteId });
-export const acceptInviteInput = z.object({ code: z.string().max(32) });
+export const acceptInviteInput = z.union([
+  z.object({ code: z.string().max(32) }),
+  inviteRefInput,
+]);
+export const listMyInvitesInput = z.object({}).optional();
+
+export interface MyInvite {
+  orgId: string;
+  inviteId: string;
+  orgName: string;
+  inviterName: string;
+  role: string;
+  expiresAt: string;
+}
 
 function expiry(): Timestamp {
   return Timestamp.fromMillis(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000);
@@ -152,8 +171,9 @@ export async function revokeInviteImpl(
 }
 
 /**
- * The invited person joins with the code (spec §4.3). The signed-in,
- * verified email must match the invited email. Idempotent: accepting twice
+ * The invited person joins with the code, or by picking the invite from
+ * [listMyInvitesImpl] (spec §4.3). Either way the signed-in, verified email
+ * must match the invited email. Idempotent: accepting twice
  * returns the same organization.
  */
 export async function acceptInviteImpl(
@@ -162,16 +182,23 @@ export async function acceptInviteImpl(
   input: z.output<typeof acceptInviteInput>,
 ): Promise<{ orgId: string }> {
   const profile = await requireProfile(db, caller.uid);
-  const normalized = normalizeInviteCode(input.code);
-  if (!normalized) fail('not-found', 'invite-not-found', 'Invite not found.');
-
-  const found = await db
-    .collectionGroup('invites')
-    .where('codeHash', '==', hashInviteCode(normalized))
-    .limit(1)
-    .get();
-  const inviteRef = found.docs[0]?.ref;
-  if (!inviteRef) fail('not-found', 'invite-not-found', 'Invite not found.');
+  let inviteRef: DocumentReference;
+  if ('code' in input) {
+    const normalized = normalizeInviteCode(input.code);
+    if (!normalized) fail('not-found', 'invite-not-found', 'Invite not found.');
+    const found = await db
+      .collectionGroup('invites')
+      .where('codeHash', '==', hashInviteCode(normalized))
+      .limit(1)
+      .get();
+    const ref = found.docs[0]?.ref;
+    if (!ref) fail('not-found', 'invite-not-found', 'Invite not found.');
+    inviteRef = ref;
+  } else {
+    // Joining from the in-app invitation list: the verified email match
+    // below is the proof, so no code is needed.
+    inviteRef = db.doc(`orgs/${input.orgId}/invites/${input.inviteId}`);
+  }
   const orgRef = inviteRef.parent.parent!;
   const memberRef = orgRef.collection('members').doc(caller.uid);
 
@@ -225,6 +252,41 @@ export async function acceptInviteImpl(
   return { orgId: orgRef.id };
 }
 
+/**
+ * Pending, unexpired invites for the caller's verified email, so the app can
+ * offer "Join" without typing the code.
+ */
+export async function listMyInvitesImpl(
+  db: Firestore,
+  caller: Caller,
+): Promise<{ invites: MyInvite[] }> {
+  const snap = await db.collectionGroup('invites').where('email', '==', caller.email).get();
+  const now = Date.now();
+  const pending = snap.docs.filter(
+    (d) => d.get('status') === 'pending' && (d.get('expiresAt') as Timestamp).toMillis() > now,
+  );
+  const result: MyInvite[] = [];
+  for (const d of pending) {
+    const orgRef = d.ref.parent.parent!;
+    const [org, member, inviter] = await Promise.all([
+      orgRef.get(),
+      orgRef.collection('members').doc(caller.uid).get(),
+      db.doc(`users/${d.get('createdBy')}`).get(),
+    ]);
+    if (!org.exists || member.exists) continue;
+    if (!['trial', 'active'].includes(org.get('status'))) continue;
+    result.push({
+      orgId: orgRef.id,
+      inviteId: d.id,
+      orgName: org.get('name') ?? '',
+      inviterName: fullName(inviter.get('firstName') ?? '', inviter.get('lastName') ?? ''),
+      role: d.get('role'),
+      expiresAt: (d.get('expiresAt') as Timestamp).toDate().toISOString(),
+    });
+  }
+  return { invites: result.sort((a, b) => a.orgName.localeCompare(b.orgName)) };
+}
+
 export const createInvite = callable(createInviteInput, (caller, input) =>
   createInviteImpl(getFirestore(), caller, input),
 );
@@ -236,4 +298,7 @@ export const revokeInvite = callable(inviteRefInput, (caller, input) =>
 );
 export const acceptInvite = callable(acceptInviteInput, (caller, input) =>
   acceptInviteImpl(getFirestore(), caller, input),
+);
+export const listMyInvites = callable(listMyInvitesInput, (caller) =>
+  listMyInvitesImpl(getFirestore(), caller),
 );

@@ -139,11 +139,14 @@ Tests:
 
 ## 8. Invite emails (optional)
 
-Invites always show a code the admin can share by hand. To also send them by email, install the **Trigger Email** extension:
+The invited person does not need the code when they sign in with the invited Google account: the app lists their invitations with a **Join** button (D-043). The code stays as a fallback. To also email the invitation, install the **Trigger Email** extension:
 
-1. Firebase console → **Extensions** → **Trigger Email from Firestore** (`firebase/firestore-send-email`) → Install in `standwise-dev`.
-2. **Email documents collection:** `mail`. **Firestore location:** the database's (`eur3`). **Cloud Functions location:** `europe-west1`.
-3. **SMTP connection URI** from an email provider, for example a Brevo or SendGrid SMTP key (`smtps://user@smtp-relay.brevo.com:465`) with the password stored as a secret. **Default FROM:** an address on a domain the provider has verified.
+1. Gmail as the sender (simplest, up to ~500 emails a day): on the Google account of the sender address turn on **2-Step Verification**, then create an **App password** at <https://myaccount.google.com/apppasswords> (name it "Standwise"). Keep the 16-letter password for step 4 only; never paste it anywhere else.
+2. Firebase console → **Extensions** → **Trigger Email from Firestore** (`firebase/firestore-send-email`) → Install in `standwise-dev`.
+3. **Email documents collection:** `mail`. **Firestore location:** the database's (`eur3`). **Cloud Functions location:** `europe-west1`.
+4. **SMTP connection URI:** `smtps://SENDER@gmail.com@smtp.gmail.com:465` (your sender address), **SMTP password:** the app password from step 1 (stored as a Secret Manager secret). **Default FROM:** `Standwise <SENDER@gmail.com>`.
+
+A dedicated provider (Brevo, SendGrid) works the same way with its own SMTP URI and key.
 
 Already queued invites are sent once the extension is running. Without it the documents just stay in `mail`.
 

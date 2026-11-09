@@ -11,6 +11,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Settings → About no longer links to the source code.
 
 ### Added
+- Invitations for your email show up in the app with a Join button, no code needed (`listMyInvites`); the invite email explains it.
 - New app icon ("split ring": work and standby arcs around clock hands) on Android, iOS, macOS and Windows.
 - Privacy Policy and Terms of Use, readable in the app from the welcome screen and Settings → About.
 - Team: "Export team CSV" now exports the People table (per-person totals and a Total row); "Export all entries" keeps the detailed export.

@@ -111,6 +111,15 @@ class UnconfiguredOrgRepository implements OrgRepository {
   Future<String> acceptInvite(String code) => _fail();
 
   @override
+  Future<List<MyInvite>> myInvites() async => const [];
+
+  @override
+  Future<String> acceptInviteById({
+    required String orgId,
+    required String inviteId,
+  }) => _fail();
+
+  @override
   Future<InviteCode> createInvite({
     required String orgId,
     required String email,

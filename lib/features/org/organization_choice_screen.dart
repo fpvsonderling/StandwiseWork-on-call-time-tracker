@@ -16,7 +16,13 @@ const orgCurrencies = [
   'RON', 'UAH', 'BGN', 'CAD', 'AUD',
 ];
 
-/// Join with an invite code or create an organization (spec §4.3). Shown
+/// Invitations for the signed-in user's email; joining needs no code.
+final myInvitesProvider = FutureProvider.autoDispose<List<MyInvite>>(
+  (ref) => ref.watch(orgRepositoryProvider).myInvites(),
+);
+
+/// Join an invitation, join with an invite code or create an organization
+/// (spec §4.3). Shown
 /// after the profile when the user has no organization, and from the
 /// switcher ([adding]) to add another one.
 class OrganizationChoiceScreen extends ConsumerWidget {
@@ -63,11 +69,95 @@ class OrganizationChoiceScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+                _InvitesCard(onDone: done),
                 _JoinCard(onDone: done),
                 const SizedBox(height: 16),
                 _CreateCard(onDone: done),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Invitations for you" with a Join button each; hidden when there are none
+/// or they can't be loaded (the code card still works then).
+class _InvitesCard extends ConsumerStatefulWidget {
+  const _InvitesCard({required this.onDone});
+
+  final VoidCallback onDone;
+
+  @override
+  ConsumerState<_InvitesCard> createState() => _InvitesCardState();
+}
+
+class _InvitesCardState extends ConsumerState<_InvitesCard> {
+  String? _joining;
+  Object? _error;
+
+  Future<void> _join(MyInvite invite) async {
+    setState(() {
+      _joining = invite.inviteId;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(orgRepositoryProvider)
+          .acceptInviteById(orgId: invite.orgId, inviteId: invite.inviteId);
+      ref.invalidate(myInvitesProvider);
+      if (mounted) widget.onDone();
+    } catch (e) {
+      if (mounted) setState(() => _error = e);
+    } finally {
+      if (mounted) setState(() => _joining = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final invites = ref.watch(myInvitesProvider).value ?? const [];
+    if (invites.isEmpty) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Card(
+        color: theme.colorScheme.primaryContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l10n.orgInvitesTitle, style: theme.textTheme.titleMedium),
+              for (final invite in invites)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.mail_outline),
+                  title: Text(invite.orgName),
+                  subtitle: Text(
+                    l10n.orgInviteFrom(
+                      invite.inviterName,
+                      l10n.role(invite.role),
+                    ),
+                  ),
+                  trailing: FilledButton(
+                    onPressed: _joining == null ? () => _join(invite) : null,
+                    child: _joining == invite.inviteId
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(l10n.orgJoinButton),
+                  ),
+                ),
+              if (_error != null)
+                Text(
+                  l10n.error(_error!),
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+            ],
           ),
         ),
       ),

@@ -25,6 +25,15 @@ abstract interface class OrgRepository {
   /// Returns the joined organization's ID.
   Future<String> acceptInvite(String code);
 
+  /// Pending invitations for the signed-in user's email.
+  Future<List<MyInvite>> myInvites();
+
+  /// Joins from [myInvites] without the code; returns the organization ID.
+  Future<String> acceptInviteById({
+    required String orgId,
+    required String inviteId,
+  });
+
   Future<InviteCode> createInvite({
     required String orgId,
     required String email,
