@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../app/brand.dart';
 import '../../app/l10n.dart';
 import '../../app/router.dart';
 import '../../app/session.dart';
 import '../../data/providers.dart';
 import '../../domain/models.dart';
+import '../legal/legal_screen.dart';
 import 'account_actions.dart';
 
 final _packageInfoProvider = FutureProvider<PackageInfo>(
@@ -25,9 +24,6 @@ class SettingsScreen extends ConsumerWidget {
     final config = ref.watch(appConfigProvider);
     final version = ref.watch(_packageInfoProvider).value;
     final session = ref.watch(sessionProvider);
-
-    Future<void> open(String url) =>
-        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 
     return ListView(
       children: [
@@ -115,19 +111,14 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
         ListTile(
-          leading: const Icon(Icons.code),
-          title: Text(l10n.settingsSourceCode),
-          onTap: () => open(Brand.repoUrl),
-        ),
-        ListTile(
           leading: const Icon(Icons.privacy_tip_outlined),
           title: Text(l10n.settingsPrivacyPolicy),
-          onTap: () => open(Brand.privacyPolicyUrl),
+          onTap: () => showLegalDocument(context, LegalDocument.privacy),
         ),
         ListTile(
           leading: const Icon(Icons.description_outlined),
           title: Text(l10n.settingsTerms),
-          onTap: () => open(Brand.termsUrl),
+          onTap: () => showLegalDocument(context, LegalDocument.terms),
         ),
         if (config.isDev) ...[
           _Header(l10n.settingsDeveloper),
