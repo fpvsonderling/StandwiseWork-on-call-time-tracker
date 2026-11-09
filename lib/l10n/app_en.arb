@@ -517,5 +517,6 @@
   "auditEnable": "{name} enabled",
   "auditRemove": "{name} removed",
   "auditLeave": "{name} left",
-  "auditAccountDelete": "A member deleted their account"
+  "auditAccountDelete": "A member deleted their account",
+  "exportTeamEntriesCsv": "Export all entries"
 }

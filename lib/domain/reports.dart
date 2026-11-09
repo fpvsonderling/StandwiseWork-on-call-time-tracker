@@ -320,6 +320,88 @@ String entriesCsv({
   return '﻿${lines.join('\r\n')}\r\n';
 }
 
+/// Column titles of the team summary export.
+class TeamCsvLabels {
+  const TeamCsvLabels({
+    required this.person,
+    required this.email,
+    required this.work,
+    required this.standby,
+    required this.total,
+    required this.hours,
+    required this.entries,
+    required this.amount,
+    required this.totalRow,
+    required this.formerMember,
+  });
+
+  final String person;
+  final String email;
+  final String work;
+  final String standby;
+  final String total;
+  final String hours;
+  final String entries;
+  final String amount;
+  final String totalRow;
+  final String formerMember;
+}
+
+/// The Team view's People table as CSV (spec §5.5): one row per person in
+/// [uids] order (zeros included), then a Total row. Work, Standby and Total
+/// as h:mm like on screen, plus total decimal hours for spreadsheets.
+String teamSummaryCsv({
+  required List<String> uids,
+  required Iterable<TimeEntry> entries,
+  required Map<String, CsvPerson> people,
+  required OrgSettings settings,
+  required TeamCsvLabels labels,
+}) {
+  final sep = settings.csvSeparator;
+  final dec = settings.csvDecimal;
+  String cell(String v) => _csvCell(v, sep);
+  final byPerson = <String, Totals>{};
+  for (final e in entries) {
+    (byPerson[e.uid] ??= Totals()).add(e);
+  }
+  final order = [...uids, ...byPerson.keys.where((u) => !uids.contains(u))];
+  List<String> figures(Totals t) => [
+    formatHoursMinutes(t.workMin),
+    formatHoursMinutes(t.standbyMin),
+    formatHoursMinutes(t.totalMin),
+    formatDecimalHours(t.totalMin, decimalMark: dec),
+    '${t.count}',
+    formatMinorPlain(t.amountMinor, decimalMark: dec),
+  ];
+  final lines = <String>[
+    [
+      labels.person,
+      labels.email,
+      labels.work,
+      labels.standby,
+      labels.total,
+      labels.hours,
+      labels.entries,
+      labels.amount,
+    ].map(cell).join(sep),
+  ];
+  final all = Totals();
+  for (final uid in order) {
+    final t = byPerson[uid] ?? Totals();
+    all.addTotals(t);
+    final p = people[uid];
+    lines.add(
+      [
+        p == null ? labels.formerMember : '${p.firstName} ${p.lastName}'.trim(),
+        p?.email ?? '',
+        ...figures(t),
+      ].map(cell).join(sep),
+    );
+  }
+  lines.add([labels.totalRow, '', ...figures(all)].map(cell).join(sep));
+  return '\uFEFF${lines.join('\r\n')}\r\n';
+}
+
 String _personKey(CsvPerson? p) =>
     p == null ? '￿' : '${p.lastName} ${p.firstName}'.toLowerCase();
 
