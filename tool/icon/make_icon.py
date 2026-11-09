@@ -1,5 +1,6 @@
-"""Draws the Standwise app icon (a clock face: right half work, left half
-standby) and writes the 1024 px source images used by flutter_launcher_icons.
+"""Draws the Standwise app icon (a clock face, right half work and left half
+standby, with a smiling worker in front) and writes the 1024 px source
+images used by flutter_launcher_icons.
 
   python3 tool/icon/make_icon.py
 """
@@ -47,27 +48,67 @@ def clock(draw: ImageDraw.ImageDraw, cx: float, cy: float, r: float) -> None:
     draw.ellipse([cx - c, cy - c, cx + c, cy + c], fill=TEAL_DARK)
 
 
+SKIN = (247, 205, 168)
+HAIR = (74, 52, 40)
+SHIRT = (250, 250, 247)
+
+
+def person(draw: ImageDraw.ImageDraw, cx: float, top: float, s: float, bottom: float) -> None:
+    """A smiling worker: head with hair, shoulders down to [bottom]."""
+    outline = s * 0.035
+    # Shoulders: a rounded block in a work shirt with a teal collar.
+    sw = s * 0.92
+    st = top + s * 0.47
+    draw.rounded_rectangle(
+        [cx - sw / 2 - outline, st - outline, cx + sw / 2 + outline, bottom + s],
+        radius=s * 0.34, fill=TEAL_DARK)
+    draw.rounded_rectangle([cx - sw / 2, st, cx + sw / 2, bottom + s], radius=s * 0.32, fill=SHIRT)
+    draw.polygon([(cx - s * 0.11, st), (cx + s * 0.11, st), (cx, st + s * 0.13)], fill=TEAL)
+    # Neck and head.
+    hr = s * 0.23
+    hy = top + hr + outline
+    draw.ellipse([cx - hr - outline, hy - hr - outline, cx + hr + outline, hy + hr + outline], fill=TEAL_DARK)
+    draw.ellipse([cx - hr, hy - hr, cx + hr, hy + hr], fill=SKIN)
+    # Hair: a cap over the top of the head.
+    draw.chord([cx - hr, hy - hr, cx + hr, hy + hr * 0.9], 180, 360, fill=HAIR)
+    # Eyes and smile.
+    er = s * 0.028
+    for dx in (-0.085, 0.085):
+        ex, ey = cx + s * dx, hy + s * 0.03
+        draw.ellipse([ex - er, ey - er, ex + er, ey + er], fill=TEAL_DARK)
+    sm = s * 0.11
+    draw.arc([cx - sm, hy - sm * 0.2, cx + sm, hy + sm * 1.2], 20, 160, fill=TEAL_DARK, width=int(s * 0.03))
+
+
+def scene(draw: ImageDraw.ImageDraw, ox: float, oy: float, size: float, bottom: float) -> None:
+    """Clock behind, worker in front, laid out in the square (ox, oy, size)."""
+    clock(draw, ox + size * 0.40, oy + size * 0.40, size * 0.34)
+    person(draw, ox + size * 0.70, oy + size * 0.46, size * 0.56, bottom)
+
+
 def save(img: Image.Image, name: str) -> None:
     img.resize((1024, 1024), Image.LANCZOS).save(os.path.join(OUT, name))
 
 
 def main() -> None:
     os.makedirs(OUT, exist_ok=True)
-    # Full icon: teal background, clock filling ~70%.
+    # Full icon (iOS, Windows, legacy Android): teal background.
     full = Image.new("RGBA", (N, N), TEAL + (255,))
-    clock(ImageDraw.Draw(full), N / 2, N / 2, N * 0.35)
+    scene(ImageDraw.Draw(full), N * 0.06, N * 0.06, N * 0.88, N)
     save(full.convert("RGB"), "icon.png")
-    # Android adaptive foreground: transparent; the launcher XML insets it by
-    # 16%, which leaves the clock inside the 66% safe zone.
+    # Android adaptive foreground (no inset): the scene sits in the central
+    # safe zone; the worker's shoulders run to the bottom edge.
     fg = Image.new("RGBA", (N, N), (0, 0, 0, 0))
-    clock(ImageDraw.Draw(fg), N / 2, N / 2, N * 0.44)
+    scene(ImageDraw.Draw(fg), N * 0.19, N * 0.19, N * 0.62, N)
     save(fg, "icon_foreground.png")
-    # macOS: rounded square with margin, transparent corners.
-    mac = Image.new("RGBA", (N, N), (0, 0, 0, 0))
-    d = ImageDraw.Draw(mac)
+    # macOS: rounded square with margin; the scene is clipped to it.
     m = N * 0.1
-    d.rounded_rectangle([m, m, N - m, N - m], radius=N * 0.18, fill=TEAL)
-    clock(d, N / 2, N / 2, N * 0.28)
+    tile = Image.new("RGBA", (N, N), TEAL + (255,))
+    scene(ImageDraw.Draw(tile), m + N * 0.05, m + N * 0.05, N - 2 * m - N * 0.1, N - m)
+    mask = Image.new("L", (N, N), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([m, m, N - m, N - m], radius=N * 0.18, fill=255)
+    mac = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+    mac.paste(tile, (0, 0), mask)
     save(mac, "icon_macos.png")
 
 
