@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+- TestFlight builds run on demand or for version tags instead of on every push to `main`.
+
 ### Removed
 - Settings → About no longer links to the source code.
 

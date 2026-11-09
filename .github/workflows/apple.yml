@@ -2,10 +2,12 @@ name: TestFlight
 
 # Signed iOS and macOS builds uploaded to TestFlight (D-038). Needs the
 # App Store Connect API secrets and the app record (docs/SETUP.md §10).
+# Runs on demand and for version tags only (D-042): every run creates and then
+# revokes temporary certificates, and Apple emails the account each time.
 
 on:
   push:
-    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 concurrency:

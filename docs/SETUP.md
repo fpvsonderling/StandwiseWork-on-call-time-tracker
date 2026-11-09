@@ -156,7 +156,7 @@ Already queued invites are sent once the extension is running. Without it the do
 1. App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → **+**, name `Standwise CI`, role **App Manager**. Note the Issuer ID and Key ID and download the `.p8` file (only once).
 2. GitHub → repository Settings → Secrets and variables → Actions → add `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_KEY` (the whole `.p8` file).
 3. App Store Connect → Apps → **+** → New App: platforms iOS and macOS, bundle ID `com.sonderling.standwise` (CI registers it on its first run), SKU `standwise`.
-4. Every push to `main` runs **TestFlight** (`.github/workflows/apple.yml`). After Apple processes the build (10–30 minutes) it appears under TestFlight. Add yourself to an **Internal Testing** group once, then install the TestFlight app on the iPhone or Mac.
+4. **TestFlight** (`.github/workflows/apple.yml`) runs when you start it (GitHub → Actions → TestFlight → Run workflow) or push a version tag `v*`. Each run creates temporary signing certificates and revokes them at the end, so Apple sends a "certificate revoked" email per certificate; that is expected and harmless. After Apple processes the build (10–30 minutes) it appears under TestFlight. Add yourself to an **Internal Testing** group once, then install the TestFlight app on the iPhone or Mac.
 
 ---
 
