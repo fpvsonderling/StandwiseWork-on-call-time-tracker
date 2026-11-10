@@ -64,20 +64,29 @@ def token() -> str:
     )
 
 
-def call(method: str, path: str, body=None):
+def call(method: str, path: str, body=None, attempts: int = 4):
+    """One API call. Apple's API sometimes answers 5xx; GETs and DELETEs are retried."""
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(
-        BASE + path,
-        data=data,
-        method=method,
-        headers={"Authorization": "Bearer " + token(), "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req) as r:
-            raw = r.read()
-            return r.status, (json.loads(raw) if raw else None)
-    except urllib.error.HTTPError as e:
-        return e.code, e.read().decode()[:600]
+    retry = method in ("GET", "DELETE")
+    for attempt in range(1, attempts + 1):
+        req = urllib.request.Request(
+            BASE + path,
+            data=data,
+            method=method,
+            headers={"Authorization": "Bearer " + token(), "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req) as r:
+                raw = r.read()
+                return r.status, (json.loads(raw) if raw else None)
+        except urllib.error.HTTPError as e:
+            status, text = e.code, e.read().decode()[:600]
+        except urllib.error.URLError as e:
+            status, text = 599, str(e.reason)
+        if not retry or status < 500 or attempt == attempts:
+            return status, text
+        print(f"{method} {path.split('?')[0]}: HTTP {status}, retrying ({attempt}/{attempts - 1})", flush=True)
+        time.sleep(15 * attempt)
 
 
 def ok(status, data, what):
