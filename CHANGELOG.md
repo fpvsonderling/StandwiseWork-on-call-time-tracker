@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-10
+
+### Added
+- Android and Windows: when a newer version is on the Releases page, the app shows a banner with a Download button (iPhone, iPad and Mac update through TestFlight).
+
 ## [0.1.0] - 2026-11-09
 
 First test release for Android, Windows, iPhone, iPad and Mac.

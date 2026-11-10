@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/l10n.dart';
 import '../../app/theme.dart';
 import '../../app/session.dart';
+import '../../app/updates.dart';
 import '../../app/work_state.dart';
 import '../../data/sync.dart';
 import '../../data/providers.dart';
@@ -55,9 +57,29 @@ class AppShell extends ConsumerWidget {
       shell.goBranch(branch, initialLocation: branch == shell.currentIndex);
     }
 
+    final update = ref.watch(availableUpdateProvider).value;
+    final showUpdate = update != null && !ref.watch(updateDismissedProvider);
+
     final body = Column(
       children: [
         if (!firebaseReady) const _NotConfiguredBanner(),
+        if (showUpdate)
+          MaterialBanner(
+            content: Text(l10n.updateAvailable(update.version)),
+            leading: const Icon(Icons.system_update_alt),
+            actions: [
+              TextButton(
+                onPressed: () =>
+                    ref.read(updateDismissedProvider.notifier).dismiss(),
+                child: Text(l10n.updateLater),
+              ),
+              FilledButton(
+                onPressed: () =>
+                    launchUrl(update.url, mode: LaunchMode.externalApplication),
+                child: Text(l10n.updateDownload),
+              ),
+            ],
+          ),
         if (org != null && !org.status.writable)
           MaterialBanner(
             content: Text(l10n.orgReadOnlyBanner),

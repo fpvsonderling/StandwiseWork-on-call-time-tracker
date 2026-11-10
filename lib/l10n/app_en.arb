@@ -152,6 +152,14 @@
   "orgAddTitle": "Add an organization",
   "orgSwitch": "Switch organization",
   "orgAddOrJoin": "Create or join an organization",
+  "updateAvailable": "Standwise {version} is available.",
+  "@updateAvailable": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "updateDownload": "Download",
+  "updateLater": "Later",
   "orgReadOnlyBanner": "This organization is read-only. You can view and export data.",
   "fieldRequired": "Required",
   "settingsOrganization": "Organization",

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:standwise/app/tracker_prefs.dart';
+import 'package:standwise/app/updates.dart';
+import 'package:standwise/core/update_check.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:standwise/app/app.dart';
@@ -35,6 +37,7 @@ Future<void> pumpApp(
   Size size = const Size(500, 1000),
   void Function(FakeOrgRepository orgs)? onOrgs,
   TrackerPrefs? prefs,
+  AvailableUpdate? update,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -62,6 +65,7 @@ Future<void> pumpApp(
         profileRepositoryProvider.overrideWithValue(profiles),
         orgRepositoryProvider.overrideWithValue(orgs),
         trackerPrefsProvider.overrideWithValue(prefs ?? MemoryTrackerPrefs()),
+        availableUpdateProvider.overrideWith((ref) async => update),
         ...overrides,
       ],
       child: const StandwiseApp(),

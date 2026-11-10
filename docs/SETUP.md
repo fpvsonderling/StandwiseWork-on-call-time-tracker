@@ -166,7 +166,7 @@ Later stages add: App Check, Crashlytics, the prod project, deploy and release w
 
 Every push to `main` refreshes the **dev-latest** pre-release (Android APK and Windows zip). A numbered release is made with a version tag:
 
-1. Set `version:` in `pubspec.yaml` and move the `[Unreleased]` notes in `CHANGELOG.md` under `## [X.Y.Z] - date`.
+1. Raise `version:` in `pubspec.yaml` (the Android/Windows update banner compares it with the latest release, D-047) and move the `[Unreleased]` notes in `CHANGELOG.md` under `## [X.Y.Z] - date`.
 2. Merge, then tag that commit on `main`: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 3. CI builds and publishes **Standwise X.Y.Z** on the Releases page with `Standwise-X.Y.Z-android.apk`, `Standwise-X.Y.Z-windows.zip` and the CHANGELOG section; the same tag runs **TestFlight** (§10) for iPhone/iPad and Mac.
 
