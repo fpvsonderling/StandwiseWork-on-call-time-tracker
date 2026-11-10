@@ -7,12 +7,16 @@ Env: ASC_ISSUER_ID, ASC_KEY_ID, ASC_KEY (contents of the .p8 file).
   asc.py signing --bundle com.example.app --platform IOS|MAC_OS --out DIR
   asc.py require-app --bundle com.example.app
   asc.py write-key --dir DIR      (AuthKey_<id>.p8 for xcrun altool)
+  asc.py wait-build --bundle com.example.app --platform IOS|MAC_OS --build N
   asc.py revoke --out DIR
 
 `signing` creates a fresh distribution certificate (and, for macOS, an
 installer certificate) plus an App Store profile, writes them to DIR and
-records their IDs; `revoke` deletes them again. Builds already uploaded to
-App Store Connect stay valid after a certificate is revoked.
+records their IDs; `revoke` deletes them again. Apple checks the signature
+while it processes an upload, and a macOS build signed with a certificate that
+is revoked before that check is rejected (ITMS-90238 CSSMERR_TP_CERT_REVOKED).
+So CI runs `wait-build` after the upload and revokes only once processing has
+finished. A build that has passed processing stays valid after revocation.
 """
 import argparse
 import base64
@@ -233,6 +237,33 @@ def cmd_revoke(args):
         print(f"Delete {kind} {rid}: HTTP {status}")
 
 
+def cmd_wait_build(args):
+    """Wait until App Store Connect has finished processing an uploaded build."""
+    status, data = call("GET", f"/apps?filter[bundleId]={args.bundle}&limit=5")
+    apps = [a for a in ok(status, data, "List apps")["data"] if a["attributes"]["bundleId"] == args.bundle]
+    if not apps:
+        sys.exit(f"No app with bundle ID {args.bundle}.")
+    path = (
+        f"/builds?filter[app]={apps[0]['id']}&filter[version]={args.build}"
+        f"&filter[preReleaseVersion.platform]={args.platform}&limit=5"
+    )
+    deadline = time.time() + args.timeout
+    state = None
+    while time.time() < deadline:
+        status, data = call("GET", path)
+        if status < 300 and data["data"]:
+            state = data["data"][0]["attributes"].get("processingState")
+            print(f"Build {args.build} ({args.platform}): {state}", flush=True)
+            if state == "VALID":
+                return
+            if state in ("INVALID", "FAILED"):
+                sys.exit(f"Apple rejected build {args.build}; see the email from App Store Connect.")
+        else:
+            print(f"Build {args.build} ({args.platform}) not listed yet (HTTP {status}).", flush=True)
+        time.sleep(30)
+    sys.exit(f"Build {args.build} still {state or 'not listed'} after {args.timeout}s.")
+
+
 def main():
     for k in ("ASC_ISSUER_ID", "ASC_KEY_ID", "ASC_KEY"):
         if not os.environ.get(k):
@@ -251,6 +282,11 @@ def main():
     a.add_argument("--bundle", required=True)
     w = sub.add_parser("write-key")
     w.add_argument("--dir", required=True)
+    wb = sub.add_parser("wait-build")
+    wb.add_argument("--bundle", required=True)
+    wb.add_argument("--platform", choices=["IOS", "MAC_OS"], required=True)
+    wb.add_argument("--build", required=True)
+    wb.add_argument("--timeout", type=int, default=2700)
     r = sub.add_parser("revoke")
     r.add_argument("--out", required=True)
     args = p.parse_args()
@@ -260,6 +296,7 @@ def main():
         "require-app": cmd_require_app,
         "signing": cmd_signing,
         "write-key": cmd_write_key,
+        "wait-build": cmd_wait_build,
         "revoke": cmd_revoke,
     }[args.cmd](args)
 
