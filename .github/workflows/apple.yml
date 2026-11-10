@@ -4,11 +4,18 @@ name: TestFlight
 # App Store Connect API secrets and the app record (docs/SETUP.md §10).
 # Runs on demand and for version tags only (D-042): every run creates and then
 # revokes temporary certificates, and Apple emails the account each time.
+# Certificates are revoked only after Apple has finished processing the upload.
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Which TestFlight build to make
+        type: choice
+        options: [both, ios, macos]
+        default: both
 
 concurrency:
   group: testflight-${{ github.ref }}
@@ -28,11 +35,11 @@ jobs:
   testflight:
     name: TestFlight ${{ matrix.platform }}
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        platform: [ios, macos]
+        platform: ${{ fromJSON((inputs.platform == 'ios' || inputs.platform == 'macos') && format('["{0}"]', inputs.platform) || '["ios","macos"]') }}
     env:
       SIGN_DIR: ${{ github.workspace }}/../signing
       KEYCHAIN: ${{ github.workspace }}/../ci.keychain-db
@@ -115,6 +122,12 @@ jobs:
           xcrun altool --upload-app --type ${{ matrix.platform == 'ios' && 'ios' || 'macos' }} \
             --file "$file" --apiKey "$(echo "$ASC_KEY_ID" | tr -d '[:space:]')" \
             --apiIssuer "$(echo "$ASC_ISSUER_ID" | tr -d '[:space:]')"
+      # Apple checks the signature while processing; revoking before that
+      # makes it reject the build (ITMS-90238 CERT_REVOKED, seen on macOS 0.1.1).
+      - name: Wait for Apple to finish processing
+        run: >-
+          python tool/apple/asc.py wait-build --bundle "$BUNDLE_ID" --build ${{ github.run_number }}
+          --platform ${{ matrix.platform == 'ios' && 'IOS' || 'MAC_OS' }}
       - name: Revoke the temporary certificates
         if: always()
         run: |
