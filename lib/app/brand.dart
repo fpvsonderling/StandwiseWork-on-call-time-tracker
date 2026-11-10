@@ -4,8 +4,9 @@
 abstract final class Brand {
   static const String appName = 'Standwise';
   static const String urlScheme = 'standwise';
-  static const String repoUrl =
-      'https://github.com/fpvsonderling/StandwiseWork-on-call-time-tracker';
+  static const String repoSlug =
+      'fpvsonderling/StandwiseWork-on-call-time-tracker';
+  static const String repoUrl = 'https://github.com/$repoSlug';
 
   /// Public copies of the bundled legal texts, for the store listings only;
   /// the app shows its own copies (lib/features/legal).
