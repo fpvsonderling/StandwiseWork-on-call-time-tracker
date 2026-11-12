@@ -153,7 +153,7 @@ void main() {
     expect(find.text('Entries of Bob Nowak'), findsOneWidget);
     expect(find.text('Night shift handover'), findsOneWidget);
 
-    // The owner fixes Bob's entry with a comment; Bob will see both (D-050).
+    // The owner fixes Bob's entry with a comment; Bob will see both (D-051).
     await tester.ensureVisible(find.byTooltip('Edit entry'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Edit entry'));

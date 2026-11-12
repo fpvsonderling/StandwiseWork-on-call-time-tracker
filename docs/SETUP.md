@@ -79,6 +79,10 @@ cp config/dev.example.json config/dev.json
    - for the APK from GitHub (`dev-latest`): GitHub → **Actions** → the latest **CI** run on `main` → **Summary** → "Android signing certificate" shows SHA1 and SHA256;
    - for your own debug builds: `cd android && ./gradlew signingReport` (variant `devDebug`).
 2. Firebase console → Project settings → your Android app (`com.sonderling.standwise.dev`) → **Add fingerprint** → paste SHA1, then again for SHA256. Add both sets if you use both kinds of build.
+   The APKs on the Releases page (`dev-latest`, 0.1.0, 0.1.1) are all signed with the same CI key:
+   SHA1 `54:11:92:67:37:09:A9:07:CE:C0:D2:34:C8:0A:07:11:47:48:12:19`,
+   SHA256 `D7:72:78:E1:2F:85:50:2B:0D:E2:F5:CD:89:37:94:D0:3E:33:03:57:74:A3:D6:BC:BD:CD:B6:04:C9:5F:EF:3C`.
+   Without them Google sign-in on Android ends silently or with "Sign-in didn't finish".
 3. Put the Web client ID from step 2.4 into `GOOGLE_SERVER_CLIENT_ID`.
 
 ### iOS and macOS

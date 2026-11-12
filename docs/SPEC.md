@@ -210,7 +210,7 @@ orgs/{orgId}/auditLog/{id}                 # written only by Cloud Functions
 ```
 
 Rules and behavior:
-- Employees read/write `entries` only where `uid == request.auth.uid`; admins/owner read all entries of their org and may change other people's entries only as a signed edit (D-050).
+- Employees read/write `entries` only where `uid == request.auth.uid`; admins/owner read all entries of their org and may change other people's entries only as a signed edit (D-051).
 - `rates` under `members/{uid}` are writable only by that member; readable by that member and by admins/owner.
 - **Summaries:** a Firestore trigger on `entries` writes recomputes the affected `{uid}_{YYYY-MM}` summary **from that month's entries** (not with increments, because triggers run at least once). Team reports read one summary per member per month instead of every entry.
 - Deleting an entry sets `deleted = true` (hidden everywhere, instantly undoable). A scheduled function hard-deletes soft-deleted entries after 30 days.

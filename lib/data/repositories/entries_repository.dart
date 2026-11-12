@@ -31,7 +31,7 @@ abstract interface class EntriesRepository {
   Future<void> updateEntry(String orgId, TimeEntry entry);
 
   /// An admin changes someone else's [entry]; [edit] (who and why) is saved
-  /// with it so the owner can see it (D-050).
+  /// with it so the owner can see it (D-051).
   Future<void> editEntryAsAdmin(String orgId, TimeEntry entry, EntryEdit edit);
 
   /// Soft delete ([deleted] true) or undo.

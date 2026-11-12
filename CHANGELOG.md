@@ -7,6 +7,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ### Added
 - Team: admins and the owner can change a member's entry (Edit in the person's entry list) and add an optional comment. The member sees "Changed by …" and the comment on the entry, and the change is in the activity log. Admins cannot delete other people's entries.
 
+### Fixed
+- Android: when Google sign-in ends without signing in (seen on Xiaomi phones), the app now says so, shows the reason, and offers **Sign in with Google in the browser**.
+- Sign-in errors show a short technical detail that testers can screenshot.
+
 ## [0.1.1] - 2026-11-10
 
 ### Added

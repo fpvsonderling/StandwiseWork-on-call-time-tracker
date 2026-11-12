@@ -158,7 +158,7 @@ class TimerActions {
       _ref.read(entriesRepositoryProvider).updateEntry(_ctx.orgId, entry);
 
   /// An admin saves a change to someone else's [entry]. The owner sees who
-  /// made it and the optional [comment] (D-050). The name must match the
+  /// made it and the optional [comment] (D-051). The name must match the
   /// admin's membership exactly (firestore.rules).
   Future<void> editAsAdmin(TimeEntry entry, {required String comment}) {
     final ctx = _ctx;

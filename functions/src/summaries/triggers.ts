@@ -14,7 +14,7 @@ function millis(v: unknown): number | null {
 
 /**
  * The audit entry for an admin's signed change to someone else's entry
- * (D-050): a write whose `editedAt` is new. `null` for every other write.
+ * (D-051): a write whose `editedAt` is new. `null` for every other write.
  */
 export function adminEditAudit(entryId: string, before: EntryData, after: EntryData): AuditEntry | null {
   const at = millis(after?.editedAt);

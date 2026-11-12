@@ -236,7 +236,7 @@ service cloud.firestore {
 
         // An admin edits someone else's entry and signs the change with
         // their own uid, membership name, the server time and an optional
-        // comment, which the owner sees (D-050). Admins cannot delete or
+        // comment, which the owner sees (D-051). Admins cannot delete or
         // restore other people's entries.
         allow update: if canWrite(orgId)
           && isAdmin(orgId)

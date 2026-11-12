@@ -423,7 +423,7 @@ class _PeopleTable extends StatelessWidget {
 }
 
 /// Date, times, project, type, description, duration, rate, amount, and
-/// Edit: admins can change the entry; the person sees who did it (D-050).
+/// Edit: admins can change the entry; the person sees who did it (D-051).
 class _PersonEntries extends ConsumerWidget {
   const _PersonEntries({
     required this.uid,

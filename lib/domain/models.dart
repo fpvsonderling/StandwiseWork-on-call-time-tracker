@@ -75,7 +75,7 @@ class TimeEntry {
   final String description;
   final bool deleted;
 
-  /// Set when an admin last changed someone else's entry (D-050).
+  /// Set when an admin last changed someone else's entry (D-051).
   final EntryEdit? edit;
 
   int get durationMin => durationMinutes(start, end);
@@ -107,7 +107,7 @@ class TimeEntry {
   );
 }
 
-/// Who changed an entry on its owner's behalf, when, and why (D-050).
+/// Who changed an entry on its owner's behalf, when, and why (D-051).
 class EntryEdit {
   const EntryEdit({
     required this.byUid,

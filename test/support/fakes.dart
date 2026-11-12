@@ -27,6 +27,9 @@ class FakeAuthRepository implements AuthRepository {
   final AuthUser signInResult;
   final _changes = StreamController<AuthUser?>.broadcast();
   AppException? nextSignInError;
+  @override
+  bool hasBrowserSignIn = false;
+  int browserSignIns = 0;
 
   @override
   Stream<AuthUser?> authStateChanges() async* {
@@ -46,6 +49,14 @@ class FakeAuthRepository implements AuthRepository {
       nextSignInError = null;
       throw error;
     }
+    _user = signInResult;
+    _changes.add(_user);
+    return _user!;
+  }
+
+  @override
+  Future<AuthUser> signInWithGoogleInBrowser() async {
+    browserSignIns++;
     _user = signInResult;
     _changes.add(_user);
     return _user!;

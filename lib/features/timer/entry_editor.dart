@@ -18,7 +18,7 @@ import 'timer_screen.dart' show ProjectPicker, TypeSwitch;
 ///
 /// An admin opening someone else's entry ([ownerName] is that person) gets
 /// a comment field instead of Delete; the owner then sees who changed the
-/// entry and why (D-050).
+/// entry and why (D-051).
 Future<void> editEntry(
   BuildContext context,
   WidgetRef ref,
@@ -335,7 +335,7 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
   }
 }
 
-/// "Changed by X on date" and the admin's comment (D-050).
+/// "Changed by X on date" and the admin's comment (D-051).
 class EditedNote extends StatelessWidget {
   const EditedNote({super.key, required this.edit});
 
