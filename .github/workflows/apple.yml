@@ -2,9 +2,12 @@ name: TestFlight
 
 # Signed iOS and macOS builds uploaded to TestFlight (D-038). Needs the
 # App Store Connect API secrets and the app record (docs/SETUP.md §10).
-# Runs on demand and for version tags only (D-042): every run creates and then
-# revokes temporary certificates, and Apple emails the account each time.
-# Certificates are revoked only after Apple has finished processing the upload.
+# Runs on demand and for version tags only (D-042). Signs with the permanent
+# Apple Distribution and Mac Installer certificates from repository secrets
+# (D-052, created once by apple-signing-setup.yml); only the App Store profile
+# is made per run and deleted at the end. Without those secrets it falls back
+# to temporary certificates that are revoked after Apple has processed the
+# upload (D-048), and Apple emails the account each time.
 
 on:
   push:
@@ -52,6 +55,10 @@ jobs:
       - name: App ID
         run: python tool/apple/asc.py ensure-bundle --id "$BUNDLE_ID" --name Standwise
       - name: Signing certificate and profile
+        env:
+          APPLE_DIST_P12: ${{ secrets.APPLE_DIST_P12 }}
+          APPLE_INSTALLER_P12: ${{ secrets.APPLE_INSTALLER_P12 }}
+          APPLE_SIGNING_PASSWORD: ${{ secrets.APPLE_SIGNING_PASSWORD }}
         run: >-
           python tool/apple/asc.py signing --bundle "$BUNDLE_ID" --out "$SIGN_DIR"
           --platform ${{ matrix.platform == 'ios' && 'IOS' || 'MAC_OS' }}
@@ -128,7 +135,7 @@ jobs:
         run: >-
           python tool/apple/asc.py wait-build --bundle "$BUNDLE_ID" --build ${{ github.run_number }}
           --platform ${{ matrix.platform == 'ios' && 'IOS' || 'MAC_OS' }}
-      - name: Revoke the temporary certificates
+      - name: Delete the per-run profile and any temporary certificates
         if: always()
         run: |
           python tool/apple/asc.py revoke --out "$SIGN_DIR" || true

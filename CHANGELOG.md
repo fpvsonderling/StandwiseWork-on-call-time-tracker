@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+
+- TestFlight builds reuse permanent signing certificates, so Apple no longer emails "certificate revoked" after every build (after a one-time setup).
+
 ## [0.1.2] - 2026-11-12
 
 ### Added

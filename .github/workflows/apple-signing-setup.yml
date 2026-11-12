@@ -1,0 +1,53 @@
+name: Apple signing setup
+
+# One-time setup of the permanent Apple certificates kept in repository secrets
+# (docs/SETUP.md §10 and §12). Needs the SECRETS_TOKEN secret (fine-grained
+# token with "Secrets: read and write" on this repository). Nothing secret is
+# printed.
+#   testflight: Apple Distribution + Mac Installer certificates (D-052), so
+#               TestFlight builds stop creating and revoking certificates.
+#   developer-id: Developer ID certificate and profile for the downloadable
+#               Mac app (D-049).
+# Existing secrets are left alone unless "force" is ticked.
+
+on:
+  workflow_dispatch:
+    inputs:
+      what:
+        description: Which certificates to set up
+        type: choice
+        options: [both, testflight, developer-id]
+        default: both
+      force:
+        description: Replace existing secrets (creates new certificates)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      ASC_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+      GH_SECRETS_TOKEN: ${{ secrets.SECRETS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyjwt cryptography pynacl
+      - name: TestFlight certificates
+        if: inputs.what != 'developer-id'
+        run: >-
+          python tool/apple/asc.py dist-setup --repo "$GITHUB_REPOSITORY"
+          ${{ inputs.force && '--force' || '' }}
+      - name: Developer ID certificate and profile
+        if: inputs.what != 'testflight'
+        run: >-
+          python tool/apple/asc.py devid-setup --bundle com.sonderling.standwise
+          --repo "$GITHUB_REPOSITORY" ${{ inputs.force && '--force' || '' }}
