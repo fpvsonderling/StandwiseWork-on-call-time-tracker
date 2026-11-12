@@ -62,6 +62,7 @@ class TimeEntry {
     this.projectId,
     this.description = '',
     this.deleted = false,
+    this.edit,
   });
 
   final String id;
@@ -73,6 +74,9 @@ class TimeEntry {
   final DateTime end;
   final String description;
   final bool deleted;
+
+  /// Set when an admin last changed someone else's entry (D-050).
+  final EntryEdit? edit;
 
   int get durationMin => durationMinutes(start, end);
 
@@ -99,7 +103,25 @@ class TimeEntry {
     end: end ?? this.end,
     description: description ?? this.description,
     deleted: deleted ?? this.deleted,
+    edit: edit,
   );
+}
+
+/// Who changed an entry on its owner's behalf, when, and why (D-050).
+class EntryEdit {
+  const EntryEdit({
+    required this.byUid,
+    required this.byName,
+    this.at,
+    this.comment = '',
+  });
+
+  final String byUid;
+  final String byName;
+
+  /// Server time; `null` until the write has synced.
+  final DateTime? at;
+  final String comment;
 }
 
 /// The signed-in user's profile (spec §6 `users/{uid}`).

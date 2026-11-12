@@ -248,6 +248,13 @@ class UnconfiguredEntriesRepository implements EntriesRepository {
   Future<void> updateEntry(String orgId, TimeEntry entry) => _fail();
 
   @override
+  Future<void> editEntryAsAdmin(
+    String orgId,
+    TimeEntry entry,
+    EntryEdit edit,
+  ) => _fail();
+
+  @override
   Future<void> setDeleted(
     String orgId,
     String entryId, {

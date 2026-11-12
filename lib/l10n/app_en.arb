@@ -539,5 +539,17 @@
   "auditRemove": "{name} removed",
   "auditLeave": "{name} left",
   "auditAccountDelete": "A member deleted their account",
-  "exportTeamEntriesCsv": "Export all entries"
+  "exportTeamEntriesCsv": "Export all entries",
+  "entryEditOf": "Edit {name}’s entry",
+  "editComment": "Comment (optional)",
+  "editCommentHelp": "The person sees that you changed this entry, and this comment",
+  "editedBy": "Changed by {name}",
+  "editedByOn": "Changed by {name} on {date}",
+  "@editedByOn": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "date": {"type": "String"}
+    }
+  },
+  "auditEntryEdit": "{name}’s entry changed"
 }

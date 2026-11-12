@@ -52,6 +52,7 @@ class AuditLogScreen extends ConsumerWidget {
         'member.remove' => l10n.auditRemove(target),
         'member.leave' => l10n.auditLeave(target),
         'account.delete' => l10n.auditAccountDelete,
+        'entry.edit' => l10n.auditEntryEdit(target),
         _ => e.action,
       };
     }

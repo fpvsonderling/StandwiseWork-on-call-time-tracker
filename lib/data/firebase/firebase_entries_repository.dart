@@ -60,6 +60,14 @@ class FirebaseEntriesRepository implements EntriesRepository {
       end: (m['end'] as Timestamp?)?.toDate() ?? DateTime(0),
       description: m['description'] as String? ?? '',
       deleted: m['deleted'] as bool? ?? false,
+      edit: m['editedBy'] is String
+          ? EntryEdit(
+              byUid: m['editedBy'] as String,
+              byName: m['editedByName'] as String? ?? '',
+              at: (m['editedAt'] as Timestamp?)?.toDate(),
+              comment: m['editComment'] as String? ?? '',
+            )
+          : null,
     );
   }
 
@@ -137,6 +145,21 @@ class FirebaseEntriesRepository implements EntriesRepository {
   @override
   Future<void> updateEntry(String orgId, TimeEntry entry) async =>
       _track(_entries(orgId).doc(entry.id).update(_entryData(entry)));
+
+  @override
+  Future<void> editEntryAsAdmin(
+    String orgId,
+    TimeEntry entry,
+    EntryEdit edit,
+  ) async => _track(
+    _entries(orgId).doc(entry.id).update({
+      ..._entryData(entry),
+      'editedBy': edit.byUid,
+      'editedByName': edit.byName,
+      'editedAt': FieldValue.serverTimestamp(),
+      'editComment': edit.comment.isEmpty ? null : edit.comment,
+    }),
+  );
 
   @override
   Future<void> setDeleted(

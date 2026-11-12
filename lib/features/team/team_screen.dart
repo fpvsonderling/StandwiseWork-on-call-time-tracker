@@ -15,6 +15,7 @@ import '../common/format.dart';
 import '../common/widgets.dart';
 import '../placeholder/placeholder_screens.dart';
 import '../reports/report_widgets.dart';
+import '../timer/entry_editor.dart';
 
 /// One person's entries starting in a range (admins reading the team).
 final personEntriesProvider =
@@ -244,6 +245,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
             Card(
               child: _PersonEntries(
                 uid: _person!,
+                name: nameOf(_person!),
                 range: range.range,
                 project: _project,
               ),
@@ -420,15 +422,18 @@ class _PeopleTable extends StatelessWidget {
   }
 }
 
-/// Date, times, project, type, description, duration, rate, amount.
+/// Date, times, project, type, description, duration, rate, amount, and
+/// Edit: admins can change the entry; the person sees who did it (D-050).
 class _PersonEntries extends ConsumerWidget {
   const _PersonEntries({
     required this.uid,
+    required this.name,
     required this.range,
     required this.project,
   });
 
   final String uid;
+  final String name;
   final DateRange range;
   final String? project;
 
@@ -468,6 +473,7 @@ class _PersonEntries extends ConsumerWidget {
           DataColumn(label: Text(l10n.duration), numeric: true),
           DataColumn(label: Text(l10n.rate), numeric: true),
           DataColumn(label: Text(l10n.amount), numeric: true),
+          if (ctx.writable) DataColumn(label: Text(l10n.edit)),
         ],
         rows: [
           for (final e in entries)
@@ -491,7 +497,31 @@ class _PersonEntries extends ConsumerWidget {
                 DataCell(
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 260),
-                    child: Text(e.description, overflow: TextOverflow.ellipsis),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (e.edit case final edit?) ...[
+                          Tooltip(
+                            message: [
+                              l10n.editedBy(edit.byName),
+                              if (edit.comment.isNotEmpty) edit.comment,
+                            ].join(': '),
+                            child: Icon(
+                              Icons.edit_note,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Flexible(
+                          child: Text(
+                            e.description,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 DataCell(Text(formatHoursMinutes(e.durationMin), style: num)),
@@ -501,6 +531,15 @@ class _PersonEntries extends ConsumerWidget {
                 DataCell(
                   Text(money(context, e.amountMinor, ctx.currency), style: num),
                 ),
+                if (ctx.writable)
+                  DataCell(
+                    IconButton(
+                      tooltip: l10n.entryEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () =>
+                          editEntry(context, ref, e, ownerName: name),
+                    ),
+                  ),
               ],
             ),
         ],

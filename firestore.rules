@@ -223,14 +223,37 @@ service cloud.firestore {
         allow create: if canWrite(orgId)
           && incoming().uid == request.auth.uid
           && validEntry()
+          && !incoming().keys().hasAny(editKeys())
           && createdAtOk();
 
-        // Admins can read other people's entries but never edit them.
+        // The owner edits their entry; the last admin edit stays as it was.
         allow update: if canWrite(orgId)
           && existing().uid == request.auth.uid
           && incoming().uid == existing().uid
           && validEntry()
+          && !incoming().diff(existing()).affectedKeys().hasAny(editKeys())
           && createdAtOk();
+
+        // An admin edits someone else's entry and signs the change with
+        // their own uid, membership name, the server time and an optional
+        // comment, which the owner sees (D-050). Admins cannot delete or
+        // restore other people's entries.
+        allow update: if canWrite(orgId)
+          && isAdmin(orgId)
+          && existing().uid != request.auth.uid
+          && incoming().uid == existing().uid
+          && incoming().deleted == existing().deleted
+          && validEntry()
+          && incoming().editedBy == request.auth.uid
+          && incoming().editedByName == myMembership(orgId).firstName
+               + ' ' + myMembership(orgId).lastName
+          && incoming().editedAt == request.time
+          && optionalString(incoming(), 'editComment', 500)
+          && createdAtOk();
+
+        function editKeys() {
+          return ['editedBy', 'editedByName', 'editedAt', 'editComment'];
+        }
 
         // Soft delete (deleted = true); purgeDeletedEntries hard-deletes.
         allow delete: if false;
@@ -240,7 +263,8 @@ service cloud.firestore {
           return d.keys().hasOnly([
               'uid', 'projectId', 'type', 'rateMinor', 'start', 'end',
               'durationMin', 'description', 'monthKey', 'deleted',
-              'createdAt', 'updatedAt'])
+              'createdAt', 'updatedAt',
+              'editedBy', 'editedByName', 'editedAt', 'editComment'])
             && d.keys().hasAll([
               'uid', 'type', 'rateMinor', 'start', 'end', 'durationMin',
               'description', 'monthKey', 'deleted', 'createdAt', 'updatedAt'])

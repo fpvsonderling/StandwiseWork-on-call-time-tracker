@@ -537,6 +537,34 @@ class FakeEntriesRepository implements EntriesRepository {
   }
 
   @override
+  Future<void> editEntryAsAdmin(
+    String orgId,
+    TimeEntry entry,
+    EntryEdit edit,
+  ) async {
+    _put(
+      TimeEntry(
+        id: entry.id,
+        uid: entry.uid,
+        projectId: entry.projectId,
+        type: entry.type,
+        rateMinor: entry.rateMinor,
+        start: entry.start,
+        end: entry.end,
+        description: entry.description,
+        deleted: entry.deleted,
+        edit: EntryEdit(
+          byUid: edit.byUid,
+          byName: edit.byName,
+          at: DateTime.now(),
+          comment: edit.comment,
+        ),
+      ),
+    );
+    _changed();
+  }
+
+  @override
   Future<void> setDeleted(
     String orgId,
     String entryId, {

@@ -201,6 +201,39 @@ void main() {
     expect(e.durationMin, 120);
   });
 
+  testWidgets('shows who changed an entry and why', (tester) async {
+    final now = DateTime.now();
+    entries.entries.add(
+      TimeEntry(
+        id: 'x',
+        uid: 'u1',
+        projectId: 'p1',
+        type: EntryType.work,
+        rateMinor: 5000,
+        start: DateTime(now.year, now.month, now.day, 0, 0),
+        end: DateTime(now.year, now.month, now.day, 2, 0),
+        description: 'Ward round',
+        edit: EntryEdit(
+          byUid: 'u9',
+          byName: 'Zoe Admin',
+          at: now,
+          comment: 'Ended at 2:00',
+        ),
+      ),
+    );
+    await pump(tester);
+    expect(find.text('Changed by Zoe Admin: Ended at 2:00'), findsOneWidget);
+
+    await tester.tap(find.text('Ward round'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Changed by Zoe Admin on '), findsOneWidget);
+    expect(find.text('Ended at 2:00'), findsOneWidget);
+    // Editing it yourself keeps the note.
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Changed by Zoe Admin: Ended at 2:00'), findsOneWidget);
+  });
+
   testWidgets('Continue while a timer runs saves it first', (tester) async {
     final now = DateTime.now();
     entries.entries.add(
