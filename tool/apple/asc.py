@@ -10,6 +10,14 @@ Env: ASC_ISSUER_ID, ASC_KEY_ID, ASC_KEY (contents of the .p8 file).
   asc.py wait-build --bundle com.example.app --platform IOS|MAC_OS --build N
   asc.py revoke --out DIR
   asc.py devid-setup --bundle com.example.app --repo OWNER/NAME [--force]
+  asc.py dist-setup --repo OWNER/NAME [--force]
+
+Since D-052 TestFlight signs with one permanent Apple Distribution certificate
+(and a permanent Mac Installer certificate) kept in repository secrets, created
+once by `dist-setup`. When those secrets are present, `signing` reuses them and
+only creates the App Store profile; `revoke` then deletes just that profile, so
+Apple no longer emails "your certificate has been revoked" after every build.
+Without the secrets it falls back to the temporary certificates below.
 
 `signing` creates a fresh distribution certificate (and, for macOS, an
 installer certificate) plus an App Store profile, writes them to DIR and
@@ -189,6 +197,28 @@ def new_certificate(cert_type: str, out: str, label: str, password: str):
     return data["id"], name
 
 
+def permanent_certificate(secret: str, cert_type: str, out: str, label: str, password: str):
+    """Write a stored .p12 to OUT and find its certificate in App Store Connect (never recorded for revoke)."""
+    raw = base64.b64decode(os.environ.get(secret, "").strip())
+    _, cert, _ = pkcs12.load_key_and_certificates(raw, password.encode())
+    serial = format(cert.serial_number, "X")
+    status, data = call("GET", f"/certificates?filter[certificateType]={cert_type}&limit=200")
+    found = [
+        c for c in ok(status, data, f"List {cert_type} certificates")["data"]
+        if c["attributes"].get("serialNumber", "").upper().lstrip("0") == serial.lstrip("0")
+    ]
+    if not found:
+        sys.exit(
+            f"The {cert_type} certificate in {secret} is no longer in the Apple account (revoked or expired). "
+            "Run the Apple signing setup workflow with force (docs/SETUP.md §10)."
+        )
+    with open(os.path.join(out, f"{label}.p12"), "wb") as f:
+        f.write(raw)
+    name = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+    print(f"Using permanent {cert_type} certificate: {name}")
+    return found[0]["id"], name
+
+
 def cmd_signing(args):
     os.makedirs(args.out, exist_ok=True)
     bundle = find_bundle(args.bundle)
@@ -198,11 +228,22 @@ def cmd_signing(args):
     if os.environ.get("GITHUB_ACTIONS"):
         print(f"::add-mask::{password}")
     env = {"P12_PASSWORD": password, "TEAM_ID": bundle["attributes"]["seedId"]}
-    cert_id, env["SIGNING_IDENTITY"] = new_certificate("DISTRIBUTION", args.out, "distribution", password)
-    if args.platform == "MAC_OS":
-        _, env["INSTALLER_IDENTITY"] = new_certificate(
-            "MAC_INSTALLER_DISTRIBUTION", args.out, "installer", password
+    if os.environ.get("APPLE_DIST_P12", "").strip():
+        password = os.environ["APPLE_SIGNING_PASSWORD"].strip()
+        env["P12_PASSWORD"] = password
+        cert_id, env["SIGNING_IDENTITY"] = permanent_certificate(
+            "APPLE_DIST_P12", "DISTRIBUTION", args.out, "distribution", password
         )
+        if args.platform == "MAC_OS":
+            _, env["INSTALLER_IDENTITY"] = permanent_certificate(
+                "APPLE_INSTALLER_P12", "MAC_INSTALLER_DISTRIBUTION", args.out, "installer", password
+            )
+    else:
+        cert_id, env["SIGNING_IDENTITY"] = new_certificate("DISTRIBUTION", args.out, "distribution", password)
+        if args.platform == "MAC_OS":
+            _, env["INSTALLER_IDENTITY"] = new_certificate(
+                "MAC_INSTALLER_DISTRIBUTION", args.out, "installer", password
+            )
     profile_type = "IOS_APP_STORE" if args.platform == "IOS" else "MAC_APP_STORE"
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H%M%S")
     name = f"Standwise CI {args.platform} {stamp}"
@@ -382,6 +423,42 @@ def cmd_devid_setup(args):
             os.remove(os.path.join(out, f))
 
 
+DIST_SECRETS = ("APPLE_DIST_P12", "APPLE_INSTALLER_P12", "APPLE_SIGNING_PASSWORD")
+
+
+def cmd_dist_setup(args):
+    """Create the permanent TestFlight certificates (Apple Distribution, Mac Installer); store them as repo secrets."""
+    if not os.environ.get("GH_SECRETS_TOKEN", "").strip():
+        sys.exit("Missing GH_SECRETS_TOKEN: add the SECRETS_TOKEN repository secret (docs/SETUP.md §12).")
+    status, _ = github("GET", f"/repos/{args.repo}/actions/secrets/{DIST_SECRETS[0]}")
+    if status == 200 and not args.force:
+        print("The TestFlight certificate secrets already exist; nothing to do (run with force to replace them).")
+        return
+    if status not in (200, 404):
+        sys.exit(f"Cannot read repository secrets with SECRETS_TOKEN: HTTP {status}. Check the token's permissions.")
+    out = args.out
+    os.makedirs(out, exist_ok=True)
+    password = secrets.token_urlsafe(24)
+    if os.environ.get("GITHUB_ACTIONS"):
+        print(f"::add-mask::{password}")
+    created = []
+    try:
+        for cert_type, label in (("DISTRIBUTION", "distribution"), ("MAC_INSTALLER_DISTRIBUTION", "installer")):
+            cert_id, _ = new_certificate(cert_type, out, label, password)
+            created.append(("certificates", cert_id))
+        for secret, label in (("APPLE_DIST_P12", "distribution"), ("APPLE_INSTALLER_P12", "installer")):
+            put_secret(args.repo, secret, base64.b64encode(open(os.path.join(out, f"{label}.p12"), "rb").read()).decode())
+        put_secret(args.repo, "APPLE_SIGNING_PASSWORD", password)
+        print("Permanent TestFlight certificates are stored as secrets; builds no longer revoke certificates.")
+    except (Exception, SystemExit):
+        for kind, rid in reversed(created):
+            print(f"Cleanup: delete {kind} {rid}: HTTP {call('DELETE', f'/{kind}/{rid}')[0]}")
+        raise
+    finally:
+        for f in os.listdir(out):
+            os.remove(os.path.join(out, f))
+
+
 def main():
     for k in ("ASC_ISSUER_ID", "ASC_KEY_ID", "ASC_KEY"):
         if not os.environ.get(k):
@@ -410,6 +487,10 @@ def main():
     d.add_argument("--repo", required=True)
     d.add_argument("--out", default=os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "devid"))
     d.add_argument("--force", action="store_true")
+    ds = sub.add_parser("dist-setup")
+    ds.add_argument("--repo", required=True)
+    ds.add_argument("--out", default=os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "dist"))
+    ds.add_argument("--force", action="store_true")
     r = sub.add_parser("revoke")
     r.add_argument("--out", required=True)
     args = p.parse_args()
@@ -422,6 +503,7 @@ def main():
         "wait-build": cmd_wait_build,
         "revoke": cmd_revoke,
         "devid-setup": cmd_devid_setup,
+        "dist-setup": cmd_dist_setup,
     }[args.cmd](args)
 
 

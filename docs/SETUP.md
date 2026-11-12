@@ -160,7 +160,8 @@ Each new document in `mail` is sent once; its `delivery.state` becomes `SUCCESS`
 1. App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → **+**, name `Standwise CI`, role **App Manager**. Note the Issuer ID and Key ID and download the `.p8` file (only once).
 2. GitHub → repository Settings → Secrets and variables → Actions → add `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_KEY` (the whole `.p8` file).
 3. App Store Connect → Apps → **+** → New App: platforms iOS and macOS, bundle ID `com.sonderling.standwise` (CI registers it on its first run), SKU `standwise`.
-4. **TestFlight** (`.github/workflows/apple.yml`) runs when you start it (GitHub → Actions → TestFlight → Run workflow) or push a version tag `v*`. Each run creates temporary signing certificates and revokes them at the end, so Apple sends a "certificate revoked" email per certificate; that is expected and harmless. After Apple processes the build (10–30 minutes) it appears under TestFlight. Add yourself to an **Internal Testing** group once, then install the TestFlight app on the iPhone or Mac.
+4. **TestFlight** (`.github/workflows/apple.yml`) runs when you start it (GitHub → Actions → TestFlight → Run workflow) or push a version tag `v*`. Once the permanent certificates exist (step 5) each run only makes and deletes an App Store profile; until then it creates temporary certificates and revokes them at the end, and Apple sends a "certificate revoked" email for each. After Apple processes the build (10–30 minutes) it appears under TestFlight. Add yourself to an **Internal Testing** group once, then install the TestFlight app on the iPhone or Mac.
+5. **Permanent TestFlight certificates (one-time, D-052)**: add the `SECRETS_TOKEN` secret (§12 steps 1–2), then **Actions → Apple signing setup → Run workflow** (what: `testflight` or `both`). It creates one Apple Distribution and one Mac Installer certificate and saves `APPLE_DIST_P12`, `APPLE_INSTALLER_P12` and `APPLE_SIGNING_PASSWORD`. They are valid for a year; run it again with **force** when Apple warns they expire (a revoked or expired one makes TestFlight stop with a clear message).
 
 ---
 
@@ -182,7 +183,7 @@ A Mac app downloaded from the web must be signed with a **Developer ID Applicati
 
 1. GitHub → your avatar → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. Name `Standwise secrets`, expiration 30 days, **Only select repositories** → this repository, **Permissions → Repository permissions → Secrets: Read and write**. Generate and copy the token.
 2. This repository → **Settings → Secrets and variables → Actions → New repository secret**: name `SECRETS_TOKEN`, value the token.
-3. **Actions → macOS signing setup → Run workflow**. It creates the certificate and a `MAC_APP_DIRECT` profile through the App Store Connect API and saves `MACOS_DEVID_P12`, `MACOS_DEVID_PASSWORD` and `MACOS_DEVID_PROFILE`. Run it again with **force** only to replace a lost or expiring certificate.
+3. **Actions → Apple signing setup → Run workflow** (what: `developer-id` or `both`). It creates the certificate and a `MAC_APP_DIRECT` profile through the App Store Connect API and saves `MACOS_DEVID_P12`, `MACOS_DEVID_PASSWORD` and `MACOS_DEVID_PROFILE`. Run it again with **force** only to replace a lost or expiring certificate.
 4. Optional: delete the `SECRETS_TOKEN` secret and the token afterwards; they are only needed for step 3.
 
 If Apple refuses (only the Account Holder may create Developer ID certificates and an API key may not be allowed to), create it at developer.apple.com → Certificates → **+** → Developer ID Application instead and ask for help importing it.
