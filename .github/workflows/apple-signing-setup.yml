@@ -7,7 +7,12 @@ name: Apple signing setup
 #   testflight: Apple Distribution + Mac Installer certificates (D-052), so
 #               TestFlight builds stop creating and revoking certificates.
 #   developer-id: Developer ID certificate and profile for the downloadable
-#               Mac app (D-049).
+#               Mac app (D-049). Apple only lets the Account Holder create
+#               this certificate, so the API attempt usually fails; use:
+#   developer-id-csr: makes the key (secret MACOS_DEVID_KEY) and a CSR,
+#               uploaded as the run's artifact, for developer.apple.com.
+#   developer-id-import: takes the downloaded .cer (base64 in "cer") and
+#               stores the Developer ID secrets.
 # Existing secrets are left alone unless "force" is ticked.
 
 on:
@@ -16,8 +21,12 @@ on:
       what:
         description: Which certificates to set up
         type: choice
-        options: [both, testflight, developer-id]
+        options: [both, testflight, developer-id, developer-id-csr, developer-id-import]
         default: both
+      cer:
+        description: For developer-id-import, the .cer file from Apple as base64
+        type: string
+        default: ''
       force:
         description: Replace existing secrets (creates new certificates)
         type: boolean
@@ -42,12 +51,29 @@ jobs:
           python-version: '3.12'
       - run: pip install pyjwt cryptography pynacl
       - name: TestFlight certificates
-        if: inputs.what != 'developer-id'
+        if: inputs.what == 'both' || inputs.what == 'testflight'
         run: >-
           python tool/apple/asc.py dist-setup --repo "$GITHUB_REPOSITORY"
           ${{ inputs.force && '--force' || '' }}
       - name: Developer ID certificate and profile
-        if: inputs.what != 'testflight'
+        if: inputs.what == 'both' || inputs.what == 'developer-id'
         run: >-
           python tool/apple/asc.py devid-setup --bundle com.sonderling.standwise
           --repo "$GITHUB_REPOSITORY" ${{ inputs.force && '--force' || '' }}
+      - name: Developer ID key and certificate request
+        if: inputs.what == 'developer-id-csr'
+        run: python tool/apple/asc.py devid-csr --repo "$GITHUB_REPOSITORY" --out "$RUNNER_TEMP/csr"
+      - name: Upload the certificate request
+        if: inputs.what == 'developer-id-csr'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Standwise-DeveloperID-CSR
+          path: ${{ runner.temp }}/csr/Standwise-DeveloperID.certSigningRequest
+      - name: Import the Developer ID certificate
+        if: inputs.what == 'developer-id-import'
+        env:
+          MACOS_DEVID_KEY: ${{ secrets.MACOS_DEVID_KEY }}
+          CER_B64: ${{ inputs.cer }}
+        run: >-
+          python tool/apple/asc.py devid-import --bundle com.sonderling.standwise
+          --repo "$GITHUB_REPOSITORY" --cer-b64 "$CER_B64"

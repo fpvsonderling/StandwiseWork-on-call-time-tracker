@@ -11,6 +11,14 @@ Env: ASC_ISSUER_ID, ASC_KEY_ID, ASC_KEY (contents of the .p8 file).
   asc.py revoke --out DIR
   asc.py devid-setup --bundle com.example.app --repo OWNER/NAME [--force]
   asc.py dist-setup --repo OWNER/NAME [--force]
+  asc.py devid-csr --repo OWNER/NAME --out DIR
+  asc.py devid-import --bundle com.example.app --repo OWNER/NAME --cer-b64 BASE64
+
+Only the Account Holder may create a Developer ID certificate, and Apple
+refuses it through the API (403). `devid-csr` makes the private key (kept as
+the MACOS_DEVID_KEY secret) and a .certSigningRequest that the Account Holder
+uploads at developer.apple.com; `devid-import` takes the downloaded .cer,
+builds the .p12, creates the Developer ID profile and stores the secrets.
 
 Since D-052 TestFlight signs with one permanent Apple Distribution certificate
 (and a permanent Mac Installer certificate) kept in repository secrets, created
@@ -355,6 +363,94 @@ def put_secret(repo: str, name: str, value: str) -> None:
     print(f"Saved secret {name}.")
 
 
+def store_devid(repo: str, bundle, cert_id: str, name: str, p12: bytes, password: str) -> str:
+    """Create the Developer ID profile for CERT_ID and save the three MACOS_DEVID_* secrets."""
+    status, data = call(
+        "POST",
+        "/profiles",
+        {
+            "data": {
+                "type": "profiles",
+                "attributes": {"name": DEVID_PROFILE_NAME, "profileType": "MAC_APP_DIRECT"},
+                "relationships": {
+                    "bundleId": {"data": {"type": "bundleIds", "id": bundle["id"]}},
+                    "certificates": {"data": [{"type": "certificates", "id": cert_id}]},
+                },
+            }
+        },
+    )
+    profile = ok(status, data, "Create Developer ID profile")["data"]
+    try:
+        put_secret(repo, "MACOS_DEVID_P12", base64.b64encode(p12).decode())
+        put_secret(repo, "MACOS_DEVID_PASSWORD", password)
+        put_secret(repo, "MACOS_DEVID_PROFILE", profile["attributes"]["profileContent"])
+    except Exception:
+        pid = profile["id"]
+        print(f"Cleanup: delete profiles {pid}: HTTP {call('DELETE', f'/profiles/{pid}')[0]}")
+        raise
+    print(f"Developer ID certificate {name} and profile '{DEVID_PROFILE_NAME}' are stored as secrets.")
+    return profile["id"]
+
+
+def cmd_devid_csr(args):
+    """Make the Developer ID private key (saved as a secret) and a CSR for the Account Holder to upload."""
+    if not os.environ.get("GH_SECRETS_TOKEN", "").strip():
+        sys.exit("Missing GH_SECRETS_TOKEN: add the SECRETS_TOKEN repository secret (docs/SETUP.md §12).")
+    os.makedirs(args.out, exist_ok=True)
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    csr = (
+        x509.CertificateSigningRequestBuilder()
+        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Standwise Developer ID")]))
+        .sign(key, hashes.SHA256())
+    )
+    pem = key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+    ).decode()
+    put_secret(args.repo, "MACOS_DEVID_KEY", pem)
+    path = os.path.join(args.out, "Standwise-DeveloperID.certSigningRequest")
+    with open(path, "wb") as f:
+        f.write(csr.public_bytes(serialization.Encoding.PEM))
+    print(f"Wrote {path}. Upload it at developer.apple.com → Certificates → + → Developer ID Application (G2 Sub-CA).")
+
+
+def cmd_devid_import(args):
+    """Combine the Account Holder's downloaded .cer with MACOS_DEVID_KEY and store everything as secrets."""
+    pem = os.environ.get("MACOS_DEVID_KEY", "").strip()
+    if not pem:
+        sys.exit("Missing MACOS_DEVID_KEY: run the setup with what = developer-id-csr first.")
+    if not os.environ.get("GH_SECRETS_TOKEN", "").strip():
+        sys.exit("Missing GH_SECRETS_TOKEN: add the SECRETS_TOKEN repository secret (docs/SETUP.md §12).")
+    key = serialization.load_pem_private_key(pem.encode(), None)
+    raw = base64.b64decode(re.sub(r"\s+", "", args.cer_b64))
+    try:
+        cert = x509.load_der_x509_certificate(raw)
+    except ValueError:
+        cert = x509.load_pem_x509_certificate(raw)
+    if cert.public_key().public_numbers() != key.public_key().public_numbers():
+        sys.exit("This certificate was not made from the latest CSR (the keys differ). Use the .cer for that CSR.")
+    serial = format(cert.serial_number, "X").lstrip("0")
+    found = []
+    for cert_type in ("DEVELOPER_ID_APPLICATION_G2", "DEVELOPER_ID_APPLICATION"):
+        status, data = call("GET", f"/certificates?filter[certificateType]={cert_type}&limit=200")
+        found += [
+            c for c in ok(status, data, f"List {cert_type} certificates")["data"]
+            if c["attributes"].get("serialNumber", "").upper().lstrip("0") == serial
+        ]
+    if not found:
+        sys.exit("Apple does not list this certificate as a Developer ID Application certificate.")
+    bundle = find_bundle(args.bundle)
+    if not bundle:
+        sys.exit(f"Bundle ID {args.bundle} is not registered.")
+    password = secrets.token_urlsafe(24)
+    if os.environ.get("GITHUB_ACTIONS"):
+        print(f"::add-mask::{password}")
+    name = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+    p12 = pkcs12.serialize_key_and_certificates(
+        b"developer-id", key, cert, None, serialization.BestAvailableEncryption(password.encode())
+    )
+    store_devid(args.repo, bundle, found[0]["id"], name, p12, password)
+
+
 def cmd_devid_setup(args):
     """Create the permanent Developer ID certificate and profile; store them as repo secrets.
 
@@ -392,27 +488,8 @@ def cmd_devid_setup(args):
                 "Apple refused to create a Developer ID certificate with this API key. Only the "
                 "Account Holder may create one; see docs/SETUP.md §12 for the manual way."
             )
-        status, data = call(
-            "POST",
-            "/profiles",
-            {
-                "data": {
-                    "type": "profiles",
-                    "attributes": {"name": DEVID_PROFILE_NAME, "profileType": "MAC_APP_DIRECT"},
-                    "relationships": {
-                        "bundleId": {"data": {"type": "bundleIds", "id": bundle["id"]}},
-                        "certificates": {"data": [{"type": "certificates", "id": cert_id}]},
-                    },
-                }
-            },
-        )
-        profile = ok(status, data, "Create Developer ID profile")["data"]
-        created.append(("profiles", profile["id"]))
-        p12 = base64.b64encode(open(os.path.join(out, "developer-id.p12"), "rb").read()).decode()
-        put_secret(args.repo, "MACOS_DEVID_P12", p12)
-        put_secret(args.repo, "MACOS_DEVID_PASSWORD", password)
-        put_secret(args.repo, "MACOS_DEVID_PROFILE", profile["attributes"]["profileContent"])
-        print(f"Developer ID certificate {name} and profile '{DEVID_PROFILE_NAME}' are stored as secrets.")
+        p12 = open(os.path.join(out, "developer-id.p12"), "rb").read()
+        created.append(("profiles", store_devid(args.repo, bundle, cert_id, name, p12, password)))
     except (Exception, SystemExit):
         # Do not leave a certificate behind that nothing can use.
         for kind, rid in reversed(created):
@@ -491,6 +568,13 @@ def main():
     ds.add_argument("--repo", required=True)
     ds.add_argument("--out", default=os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "dist"))
     ds.add_argument("--force", action="store_true")
+    dc = sub.add_parser("devid-csr")
+    dc.add_argument("--repo", required=True)
+    dc.add_argument("--out", required=True)
+    di = sub.add_parser("devid-import")
+    di.add_argument("--bundle", required=True)
+    di.add_argument("--repo", required=True)
+    di.add_argument("--cer-b64", required=True)
     r = sub.add_parser("revoke")
     r.add_argument("--out", required=True)
     args = p.parse_args()
@@ -504,6 +588,8 @@ def main():
         "revoke": cmd_revoke,
         "devid-setup": cmd_devid_setup,
         "dist-setup": cmd_dist_setup,
+        "devid-csr": cmd_devid_csr,
+        "devid-import": cmd_devid_import,
     }[args.cmd](args)
 
 

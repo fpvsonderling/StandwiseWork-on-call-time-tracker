@@ -186,6 +186,10 @@ A Mac app downloaded from the web must be signed with a **Developer ID Applicati
 3. **Actions → Apple signing setup → Run workflow** (what: `developer-id` or `both`). It creates the certificate and a `MAC_APP_DIRECT` profile through the App Store Connect API and saves `MACOS_DEVID_P12`, `MACOS_DEVID_PASSWORD` and `MACOS_DEVID_PROFILE`. Run it again with **force** only to replace a lost or expiring certificate.
 4. Optional: delete the `SECRETS_TOKEN` secret and the token afterwards; they are only needed for step 3.
 
-If Apple refuses (only the Account Holder may create Developer ID certificates and an API key may not be allowed to), create it at developer.apple.com → Certificates → **+** → Developer ID Application instead and ask for help importing it.
+Apple usually refuses step 3 ("This operation can only be performed by the Account Holder"). Then, still without a Mac:
+
+1. **Actions → Apple signing setup → Run workflow**, what: `developer-id-csr`. It saves a new private key as `MACOS_DEVID_KEY` and attaches `Standwise-DeveloperID.certSigningRequest` to the run (Artifacts, at the bottom of the run page).
+2. Signed in as the Account Holder: developer.apple.com → Certificates, Identifiers & Profiles → Certificates → **+** → **Developer ID Application** → Profile Type **G2 Sub-CA** → upload the `.certSigningRequest` → Download the `.cer`.
+3. **Run workflow** again, what: `developer-id-import`, and paste the `.cer` as base64 into **cer** (`base64 -w0 developerID_application.cer`, or PowerShell `[Convert]::ToBase64String([IO.File]::ReadAllBytes("developerID_application.cer"))`). The certificate is public, only the key is secret. It checks that the certificate matches the key, creates the profile and saves the `MACOS_DEVID_*` secrets.
 
 From the next version tag on, CI (`build-macos-direct`) signs the release build with hardened runtime, notarizes and staples it, and attaches the zip to the release.
