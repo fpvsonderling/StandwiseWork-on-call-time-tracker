@@ -9,6 +9,7 @@ Env: ASC_ISSUER_ID, ASC_KEY_ID, ASC_KEY (contents of the .p8 file).
   asc.py write-key --dir DIR      (AuthKey_<id>.p8 for xcrun altool)
   asc.py wait-build --bundle com.example.app --platform IOS|MAC_OS --build N
   asc.py revoke --out DIR
+  asc.py devid-setup --bundle com.example.app --repo OWNER/NAME [--force]
 
 `signing` creates a fresh distribution certificate (and, for macOS, an
 installer certificate) plus an App Store profile, writes them to DIR and
@@ -273,6 +274,114 @@ def cmd_wait_build(args):
     sys.exit(f"Build {args.build} still {state or 'not listed'} after {args.timeout}s.")
 
 
+DEVID_SECRETS = ("MACOS_DEVID_P12", "MACOS_DEVID_PASSWORD", "MACOS_DEVID_PROFILE")
+DEVID_PROFILE_NAME = "Standwise Direct (Developer ID)"
+
+
+def github(method: str, path: str, body=None):
+    """GitHub REST call with GH_SECRETS_TOKEN (fine-grained token, Secrets: write)."""
+    req = urllib.request.Request(
+        "https://api.github.com" + path,
+        data=json.dumps(body).encode() if body is not None else None,
+        method=method,
+        headers={
+            "Authorization": "Bearer " + os.environ["GH_SECRETS_TOKEN"].strip(),
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            raw = r.read()
+            return r.status, (json.loads(raw) if raw else None)
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode()[:300]
+
+
+def put_secret(repo: str, name: str, value: str) -> None:
+    from nacl import encoding, public
+
+    status, key = github("GET", f"/repos/{repo}/actions/secrets/public-key")
+    if status >= 300:
+        raise RuntimeError(f"Read the repository public key: HTTP {status} {key}")
+    box = public.SealedBox(public.PublicKey(key["key"].encode(), encoding.Base64Encoder()))
+    sealed = base64.b64encode(box.encrypt(value.encode())).decode()
+    status, data = github(
+        "PUT", f"/repos/{repo}/actions/secrets/{name}", {"encrypted_value": sealed, "key_id": key["key_id"]}
+    )
+    if status >= 300:
+        raise RuntimeError(f"Save secret {name}: HTTP {status} {data}")
+    print(f"Saved secret {name}.")
+
+
+def cmd_devid_setup(args):
+    """Create the permanent Developer ID certificate and profile; store them as repo secrets.
+
+    Unlike the TestFlight certificates these are never revoked: a revoked
+    Developer ID certificate stops downloaded copies of the app from opening.
+    """
+    if not os.environ.get("GH_SECRETS_TOKEN", "").strip():
+        sys.exit("Missing GH_SECRETS_TOKEN: add the SECRETS_TOKEN repository secret (docs/SETUP.md §12).")
+    status, _ = github("GET", f"/repos/{args.repo}/actions/secrets/{DEVID_SECRETS[0]}")
+    if status == 200 and not args.force:
+        print("The Developer ID secrets already exist; nothing to do (run with force to replace them).")
+        return
+    if status not in (200, 404):
+        sys.exit(f"Cannot read repository secrets with SECRETS_TOKEN: HTTP {status}. Check the token's permissions.")
+    bundle = find_bundle(args.bundle)
+    if not bundle:
+        sys.exit(f"Bundle ID {args.bundle} is not registered.")
+    out = args.out
+    os.makedirs(out, exist_ok=True)
+    password = secrets.token_urlsafe(24)
+    if os.environ.get("GITHUB_ACTIONS"):
+        print(f"::add-mask::{password}")
+    created = []
+    try:
+        cert_id = None
+        for cert_type in ("DEVELOPER_ID_APPLICATION_G2", "DEVELOPER_ID_APPLICATION"):
+            try:
+                cert_id, name = new_certificate(cert_type, out, "developer-id", password)
+                created.append(("certificates", cert_id))
+                break
+            except SystemExit as e:
+                print(e, flush=True)
+        if not cert_id:
+            sys.exit(
+                "Apple refused to create a Developer ID certificate with this API key. Only the "
+                "Account Holder may create one; see docs/SETUP.md §12 for the manual way."
+            )
+        status, data = call(
+            "POST",
+            "/profiles",
+            {
+                "data": {
+                    "type": "profiles",
+                    "attributes": {"name": DEVID_PROFILE_NAME, "profileType": "MAC_APP_DIRECT"},
+                    "relationships": {
+                        "bundleId": {"data": {"type": "bundleIds", "id": bundle["id"]}},
+                        "certificates": {"data": [{"type": "certificates", "id": cert_id}]},
+                    },
+                }
+            },
+        )
+        profile = ok(status, data, "Create Developer ID profile")["data"]
+        created.append(("profiles", profile["id"]))
+        p12 = base64.b64encode(open(os.path.join(out, "developer-id.p12"), "rb").read()).decode()
+        put_secret(args.repo, "MACOS_DEVID_P12", p12)
+        put_secret(args.repo, "MACOS_DEVID_PASSWORD", password)
+        put_secret(args.repo, "MACOS_DEVID_PROFILE", profile["attributes"]["profileContent"])
+        print(f"Developer ID certificate {name} and profile '{DEVID_PROFILE_NAME}' are stored as secrets.")
+    except (Exception, SystemExit):
+        # Do not leave a certificate behind that nothing can use.
+        for kind, rid in reversed(created):
+            print(f"Cleanup: delete {kind} {rid}: HTTP {call('DELETE', f'/{kind}/{rid}')[0]}")
+        raise
+    finally:
+        for f in os.listdir(out):
+            os.remove(os.path.join(out, f))
+
+
 def main():
     for k in ("ASC_ISSUER_ID", "ASC_KEY_ID", "ASC_KEY"):
         if not os.environ.get(k):
@@ -296,6 +405,11 @@ def main():
     wb.add_argument("--platform", choices=["IOS", "MAC_OS"], required=True)
     wb.add_argument("--build", required=True)
     wb.add_argument("--timeout", type=int, default=2700)
+    d = sub.add_parser("devid-setup")
+    d.add_argument("--bundle", required=True)
+    d.add_argument("--repo", required=True)
+    d.add_argument("--out", default=os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "devid"))
+    d.add_argument("--force", action="store_true")
     r = sub.add_parser("revoke")
     r.add_argument("--out", required=True)
     args = p.parse_args()
@@ -307,6 +421,7 @@ def main():
         "write-key": cmd_write_key,
         "wait-build": cmd_wait_build,
         "revoke": cmd_revoke,
+        "devid-setup": cmd_devid_setup,
     }[args.cmd](args)
 
 
