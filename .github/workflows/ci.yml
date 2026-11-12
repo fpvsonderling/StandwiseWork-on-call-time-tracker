@@ -284,6 +284,9 @@ jobs:
           app=$(ls -d build/macos/Build/Products/Release/*.app | head -1)
           echo "APP=$app" >> "$GITHUB_ENV"
           codesign -d --entitlements - --xml "$app" > "$RUNNER_TEMP/entitlements.plist"
+          # Debug-only entitlement; notarization rejects it.
+          /usr/libexec/PlistBuddy -c "Delete :com.apple.security.get-task-allow" "$RUNNER_TEMP/entitlements.plist" || true
+          plutil -p "$RUNNER_TEMP/entitlements.plist"
           for f in "$app"/Contents/Frameworks/*; do
             codesign --force --timestamp --options runtime --keychain "$KEYCHAIN" -s "$DEVID_IDENTITY" "$f"
           done
