@@ -204,6 +204,124 @@ jobs:
           cache: true
       - run: flutter build ios --debug --no-codesign -t lib/main_dev.dart $DART_DEFINES
 
+  # Downloadable Mac app for a v* tag (D-049): signed with the permanent
+  # Developer ID certificate from the repository secrets (docs/SETUP.md §12),
+  # notarized by Apple and attached to the release. Without those secrets the
+  # job does nothing and the release has no Mac download.
+  build-macos-direct:
+    name: Build macOS (Developer ID)
+    # Manual CI runs build it too, to try the signing without a release.
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: analyze-test
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      DEVID_P12: ${{ secrets.MACOS_DEVID_P12 }}
+      DEVID_PASSWORD: ${{ secrets.MACOS_DEVID_PASSWORD }}
+      DEVID_PROFILE: ${{ secrets.MACOS_DEVID_PROFILE }}
+      ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      ASC_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+    steps:
+      - name: Developer ID secrets present?
+        id: have
+        run: |
+          if [ -n "$DEVID_P12" ] && [ -n "$DEVID_PASSWORD" ] && [ -n "$DEVID_PROFILE" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No Developer ID secrets (docs/SETUP.md §12); this release has no Mac download."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.have.outputs.ok
+      - uses: actions/setup-python@v5
+        if: steps.have.outputs.ok
+        with:
+          python-version: '3.12'
+      - if: steps.have.outputs.ok
+        run: pip install pyjwt cryptography
+      - name: Keychain and profile
+        if: steps.have.outputs.ok
+        run: |
+          keychain="$RUNNER_TEMP/devid.keychain-db"
+          echo "KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+          echo "$DEVID_P12" | base64 --decode > "$RUNNER_TEMP/devid.p12"
+          security create-keychain -p "" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "" "$keychain"
+          security import "$RUNNER_TEMP/devid.p12" -P "$DEVID_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          rm -f "$RUNNER_TEMP/devid.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          profile="$RUNNER_TEMP/devid.provisionprofile"
+          echo "$DEVID_PROFILE" | base64 --decode > "$profile"
+          security cms -D -i "$profile" > "$RUNNER_TEMP/profile.plist"
+          uuid=$(plutil -extract UUID raw "$RUNNER_TEMP/profile.plist")
+          name=$(plutil -extract Name raw "$RUNNER_TEMP/profile.plist")
+          team=$(plutil -extract TeamIdentifier.0 raw "$RUNNER_TEMP/profile.plist")
+          identity=$(security find-identity -v -p codesigning "$keychain" | grep -o '"Developer ID Application[^"]*"' | head -1 | tr -d '"')
+          [ -n "$identity" ] || { echo "No Developer ID identity in MACOS_DEVID_P12."; exit 1; }
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"
+            cp "$profile" "$d/$uuid.provisionprofile"
+          done
+          echo "DEVID_IDENTITY=$identity" >> "$GITHUB_ENV"
+          python tool/apple/manual_signing.py macos/Runner.xcodeproj/project.pbxproj \
+            "CODE_SIGN_ENTITLEMENTS = Runner/Release.entitlements;" "$team" "$name" "$identity"
+      - uses: subosito/flutter-action@v2
+        if: steps.have.outputs.ok
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Build
+        if: steps.have.outputs.ok
+        run: flutter build macos --release -t lib/main_dev.dart --build-number=${{ github.run_number }} $DART_DEFINES
+      # Notarization needs the hardened runtime and secure timestamps on every
+      # binary, so the frameworks and then the app are signed again.
+      - name: Sign for distribution
+        if: steps.have.outputs.ok
+        run: |
+          app=$(ls -d build/macos/Build/Products/Release/*.app | head -1)
+          echo "APP=$app" >> "$GITHUB_ENV"
+          codesign -d --entitlements - --xml "$app" > "$RUNNER_TEMP/entitlements.plist"
+          for f in "$app"/Contents/Frameworks/*; do
+            codesign --force --timestamp --options runtime --keychain "$KEYCHAIN" -s "$DEVID_IDENTITY" "$f"
+          done
+          codesign --force --timestamp --options runtime --keychain "$KEYCHAIN" \
+            --entitlements "$RUNNER_TEMP/entitlements.plist" -s "$DEVID_IDENTITY" "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+      - name: Notarize and staple
+        if: steps.have.outputs.ok
+        run: |
+          keys="$RUNNER_TEMP/keys"
+          python tool/apple/asc.py write-key --dir "$keys"
+          key_id=$(echo "$ASC_KEY_ID" | tr -d '[:space:]')
+          issuer=$(echo "$ASC_ISSUER_ID" | tr -d '[:space:]')
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --key "$keys/AuthKey_$key_id.p8" \
+            --key-id "$key_id" --issuer "$issuer" --wait --timeout 45m --output-format json > "$RUNNER_TEMP/notary.json"
+          status=$(plutil -extract status raw -o - "$RUNNER_TEMP/notary.json" 2>/dev/null || python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['status'])" "$RUNNER_TEMP/notary.json")
+          echo "Notarization: $status"
+          if [ "$status" != "Accepted" ]; then
+            id=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['id'])" "$RUNNER_TEMP/notary.json")
+            xcrun notarytool log "$id" --key "$keys/AuthKey_$key_id.p8" --key-id "$key_id" --issuer "$issuer"
+            exit 1
+          fi
+          xcrun stapler staple "$APP"
+          spctl --assess --type execute --verbose=4 "$APP"
+          ditto -c -k --keepParent "$APP" Standwise-macos.zip
+      - uses: actions/upload-artifact@v4
+        if: steps.have.outputs.ok
+        with:
+          name: Standwise-macos
+          path: Standwise-macos.zip
+          retention-days: 7
+      - name: Clean up
+        if: always()
+        run: |
+          [ -n "$KEYCHAIN" ] && security delete-keychain "$KEYCHAIN" || true
+          rm -rf "$RUNNER_TEMP/keys" "$RUNNER_TEMP"/devid.* || true
+
   # Fixed download links for testers: Releases → "dev-latest".
   publish-dev:
     name: Publish dev-latest
@@ -238,13 +356,13 @@ jobs:
             **Windows:** download `Standwise-dev-windows.zip`, unzip it and run `Standwise\standwise.exe`.
             **Android:** download `Standwise-dev.apk` on the phone and install it (allow installs from this source).
 
-  # Versioned release for a v* tag (D-046): Android and Windows downloads on
-  # the Releases page; iOS and macOS go to TestFlight from apple.yml, which
-  # the same tag starts.
+  # Versioned release for a v* tag (D-046): Android, Windows and (D-049) Mac
+  # downloads on the Releases page; iOS and macOS also go to TestFlight from
+  # apple.yml, which the same tag starts.
   publish-release:
     name: Publish release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-android, build-windows]
+    needs: [build-android, build-windows, build-macos-direct]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -258,6 +376,12 @@ jobs:
         with:
           name: Standwise-dev-android
           path: .
+      # Absent when the Developer ID secrets are not set up yet.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: Standwise-macos
+          path: .
       - name: Files and notes
         env:
           TAG: ${{ github.ref_name }}
@@ -265,6 +389,11 @@ jobs:
           ver="${TAG#v}"
           zip -qr "Standwise-$ver-windows.zip" Standwise
           mv Standwise-dev.apk "Standwise-$ver-android.apk"
+          mac=false
+          if [ -f Standwise-macos.zip ]; then
+            mv Standwise-macos.zip "Standwise-$ver-macos.zip"
+            mac=true
+          fi
           # The CHANGELOG section of this version, if there is one.
           awk -v v="$ver" '
             $0 ~ "^## \\[" v "\\]" { on = 1; next }
@@ -279,7 +408,11 @@ jobs:
             echo "| **Android** | Download \`Standwise-$ver-android.apk\` on the phone and open it (allow installs from this source). |"
             echo "| **Windows** | Download \`Standwise-$ver-windows.zip\`, unzip it and run \`Standwise\\standwise.exe\`. |"
             echo "| **iPhone / iPad** | Through **TestFlight**: ask the owner for an invite, install TestFlight from the App Store and open the invite. |"
-            echo "| **Mac** | Through **TestFlight for Mac**, the same way as on iPhone. |"
+            if [ "$mac" = true ]; then
+              echo "| **Mac** | Download \`Standwise-$ver-macos.zip\`, open it and drag **Standwise** to Applications. Or use **TestFlight for Mac**. |"
+            else
+              echo "| **Mac** | Through **TestFlight for Mac**, the same way as on iPhone. |"
+            fi
             echo
             echo "Sign in with your Google account. If you were invited to a company, the invitation shows up with a **Join** button."
             if [ -s changes.md ]; then
@@ -299,3 +432,4 @@ jobs:
           files: |
             Standwise-${{ env.VERSION }}-windows.zip
             Standwise-${{ env.VERSION }}-android.apk
+            Standwise-${{ env.VERSION }}-macos.zip

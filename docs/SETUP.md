@@ -170,4 +170,17 @@ Every push to `main` refreshes the **dev-latest** pre-release (Android APK and W
 2. Merge, then tag that commit on `main`: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 3. CI builds and publishes **Standwise X.Y.Z** on the Releases page with `Standwise-X.Y.Z-android.apk`, `Standwise-X.Y.Z-windows.zip` and the CHANGELOG section; the same tag runs **TestFlight** (§10) for iPhone/iPad and Mac.
 
-iOS and macOS are not downloadable from GitHub: Apple requires TestFlight or the App Store (a direct Mac download would need a Developer ID certificate and notarization).
+iPhone and iPad builds are not downloadable from GitHub: Apple requires TestFlight or the App Store. The Mac app is, once §12 is done: the release then also has `Standwise-X.Y.Z-macos.zip`, signed with Developer ID and notarized.
+
+## 12. Downloadable Mac app (Developer ID, one-time)
+
+A Mac app downloaded from the web must be signed with a **Developer ID Application** certificate and notarized by Apple. Unlike the TestFlight certificates (§10) this one is permanent: revoking it would stop every downloaded copy from opening. It lives in repository secrets and is valid for 5 years. Steps, all in the browser:
+
+1. GitHub → your avatar → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. Name `Standwise secrets`, expiration 30 days, **Only select repositories** → this repository, **Permissions → Repository permissions → Secrets: Read and write**. Generate and copy the token.
+2. This repository → **Settings → Secrets and variables → Actions → New repository secret**: name `SECRETS_TOKEN`, value the token.
+3. **Actions → macOS signing setup → Run workflow**. It creates the certificate and a `MAC_APP_DIRECT` profile through the App Store Connect API and saves `MACOS_DEVID_P12`, `MACOS_DEVID_PASSWORD` and `MACOS_DEVID_PROFILE`. Run it again with **force** only to replace a lost or expiring certificate.
+4. Optional: delete the `SECRETS_TOKEN` secret and the token afterwards; they are only needed for step 3.
+
+If Apple refuses (only the Account Holder may create Developer ID certificates and an API key may not be allowed to), create it at developer.apple.com → Certificates → **+** → Developer ID Application instead and ask for help importing it.
+
+From the next version tag on, CI (`build-macos-direct`) signs the release build with hardened runtime, notarizes and staples it, and attaches the zip to the release.
