@@ -43,6 +43,16 @@
   "welcomeHeadline": "Track work and on-call hours",
   "welcomeBody": "Log Work and Standby time with a timer or by hand, each with your own hourly rate. Your organization gets team reports; everyone else sees only their own hours.",
   "welcomeSignIn": "Sign in with Google",
+  "welcomeSignInIncomplete": "Sign-in didn't finish. If you already picked your Google account, try signing in through the browser.",
+  "welcomeSignInBrowser": "Sign in with Google in the browser",
+  "errorDetails": "Details: {detail}",
+  "@errorDetails": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
   "welcomePrivacy": "By signing in you agree to the terms and the privacy policy.",
   "loadingMessage": "Loading…",
   "profileSetupTitle": "Your name",

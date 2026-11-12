@@ -129,6 +129,49 @@ void main() {
     );
   });
 
+  testWidgets('on Android a sign-in that ends without an account offers the '
+      'browser sign-in and shows the details', (tester) async {
+    tester.view.physicalSize = const Size(400, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final auth = FakeAuthRepository()..hasBrowserSignIn = true;
+    final profiles = FakeProfileRepository();
+    await tester.pumpWidget(_app(auth, profiles));
+    await tester.pumpAndSettle();
+
+    auth.nextSignInError = const AppException(
+      AppErrorCode.signInCancelled,
+      '[16] Account reauth failed.',
+    );
+    await tester.tap(find.text('Sign in with Google'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining("Sign-in didn't finish"), findsOneWidget);
+    expect(find.text('Details: [16] Account reauth failed.'), findsOneWidget);
+
+    await tester.tap(find.text('Sign in with Google in the browser'));
+    await tester.pumpAndSettle();
+    expect(auth.browserSignIns, 1);
+    expect(find.text('Your name'), findsOneWidget);
+  });
+
+  testWidgets('a failed sign-in shows its details', (tester) async {
+    final auth = FakeAuthRepository();
+    await tester.pumpWidget(_app(auth, FakeProfileRepository()));
+    await tester.pumpAndSettle();
+
+    auth.nextSignInError = const AppException(
+      AppErrorCode.signInFailed,
+      'unknownError: boom',
+    );
+    await tester.tap(find.text('Sign in with Google'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign-in failed. Please try again.'), findsOneWidget);
+    expect(find.text('Details: unknownError: boom'), findsOneWidget);
+    // No browser fallback off Android.
+    expect(find.text('Sign in with Google in the browser'), findsNothing);
+  });
+
   testWidgets('a complete profile opens the app; Settings edits the name '
       'and signs out', (tester) async {
     tester.view.physicalSize = const Size(400, 900);

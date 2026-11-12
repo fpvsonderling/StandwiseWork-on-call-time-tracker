@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- Android: when Google sign-in ends without signing in (seen on Xiaomi phones), the app now says so, shows the reason, and offers **Sign in with Google in the browser**.
+- Sign-in errors show a short technical detail that testers can screenshot.
+
 ## [0.1.1] - 2026-11-10
 
 ### Added
