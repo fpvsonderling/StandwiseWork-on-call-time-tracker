@@ -443,7 +443,7 @@ describe('entries', () => {
     await assertFails(getDocs(query(entries(f), where('uid', '==', 'bob'))));
   });
 
-  it('lets admins read everything but not edit other people’s entries', async () => {
+  it('lets admins read everything but only change other people’s entries signed', async () => {
     await assertSucceeds(getDocs(entries(db('bob'))));
     await assertFails(
       updateDoc(doc(entries(db('bob')), 'carol-1'), {
@@ -452,6 +452,79 @@ describe('entries', () => {
       }),
     );
     await assertFails(setDoc(doc(entries(db('alice')), 'carol-1'), entry('carol')));
+  });
+
+  describe('admin edits', () => {
+    const signed = (uid: string, extra: Record<string, unknown> = {}) => ({
+      description: 'Fixed by admin',
+      updatedAt: serverTimestamp(),
+      editedBy: uid,
+      editedByName: `${uid} Test`,
+      editedAt: serverTimestamp(),
+      editComment: 'Wrong end time',
+      ...extra,
+    });
+
+    it('lets an admin or the owner change a member’s entry with a signature', async () => {
+      await assertSucceeds(updateDoc(doc(entries(db('bob')), 'carol-1'), signed('bob')));
+      await assertSucceeds(
+        updateDoc(doc(entries(db('alice')), 'carol-1'), signed('alice', { editComment: null })),
+      );
+      await assertSucceeds(
+        updateDoc(
+          doc(entries(db('bob')), 'carol-1'),
+          signed('bob', {
+            end: Timestamp.fromDate(new Date('2026-11-02T12:00:00Z')),
+            durationMin: 240,
+          }),
+        ),
+      );
+    });
+
+    it('rejects forged or incomplete signatures', async () => {
+      const d = doc(entries(db('bob')), 'carol-1');
+      await assertFails(updateDoc(d, signed('alice')));
+      await assertFails(updateDoc(d, signed('bob', { editedByName: 'Someone Else' })));
+      await assertFails(updateDoc(d, signed('bob', { editedAt: Timestamp.now() })));
+      await assertFails(updateDoc(d, signed('bob', { editComment: 'x'.repeat(501) })));
+      const { editedByName: _, ...noName } = signed('bob');
+      await assertFails(updateDoc(d, noName));
+    });
+
+    it('still validates the entry and keeps uid and deleted fixed', async () => {
+      const d = doc(entries(db('bob')), 'carol-1');
+      await assertFails(updateDoc(d, signed('bob', { durationMin: 1 })));
+      await assertFails(updateDoc(d, signed('bob', { uid: 'bob' })));
+      await assertFails(updateDoc(d, signed('bob', { deleted: true })));
+    });
+
+    it('is not open to employees or suspended orgs', async () => {
+      await assertFails(updateDoc(doc(entries(db('carol')), 'bob-1'), signed('carol')));
+      await assertFails(
+        updateDoc(doc(entries(db('carol'), ORG_SUSPENDED), 'x'), signed('carol')),
+      );
+    });
+
+    it('stops members from creating or changing the signature themselves', async () => {
+      await assertFails(
+        setDoc(doc(entries(db('carol')), 'carol-2'), {
+          ...entry('carol'),
+          editedBy: 'bob',
+          editedByName: 'bob Test',
+          editedAt: serverTimestamp(),
+        }),
+      );
+      await assertSucceeds(updateDoc(doc(entries(db('bob')), 'carol-1'), signed('bob')));
+      const own = doc(entries(db('carol')), 'carol-1');
+      // Editing the entry afterwards keeps the admin's note as it is.
+      await assertSucceeds(
+        updateDoc(own, { description: 'Mine again', updatedAt: serverTimestamp() }),
+      );
+      await assertFails(updateDoc(own, { editComment: null, updatedAt: serverTimestamp() }));
+      await assertFails(
+        updateDoc(own, { editedByName: 'Nobody', updatedAt: serverTimestamp() }),
+      );
+    });
   });
 
   it('isolates organizations', async () => {

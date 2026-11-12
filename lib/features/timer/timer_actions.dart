@@ -157,6 +157,40 @@ class TimerActions {
   Future<void> update(TimeEntry entry) =>
       _ref.read(entriesRepositoryProvider).updateEntry(_ctx.orgId, entry);
 
+  /// An admin saves a change to someone else's [entry]. The owner sees who
+  /// made it and the optional [comment] (D-051). The name must match the
+  /// admin's membership exactly (firestore.rules).
+  Future<void> editAsAdmin(TimeEntry entry, {required String comment}) {
+    final ctx = _ctx;
+    if (!ctx.isAdmin) throw const AppException(AppErrorCode.notAdmin);
+    final m = ctx.membership;
+    return _ref
+        .read(entriesRepositoryProvider)
+        .editEntryAsAdmin(
+          ctx.orgId,
+          entry,
+          EntryEdit(
+            byUid: ctx.uid,
+            byName: '${m.firstName} ${m.lastName}',
+            comment: comment.trim(),
+          ),
+        );
+  }
+
+  /// The current rate of [uid] (an admin editing a member's entry).
+  int rateForMember(String uid, String? projectId, EntryType type) {
+    if (uid == _ref.read(workContextProvider)?.uid) {
+      return _rate(projectId, type);
+    }
+    final orgId = _ref.read(workContextProvider)?.orgId;
+    if (orgId == null) return 0;
+    return currentRate(
+      _ref.read(memberRatesProvider((orgId, uid))).value ?? const {},
+      projectId,
+      type,
+    );
+  }
+
   Future<void> setDeleted(String entryId, {required bool deleted}) => _ref
       .read(entriesRepositoryProvider)
       .setDeleted(_ctx.orgId, entryId, deleted: deleted);

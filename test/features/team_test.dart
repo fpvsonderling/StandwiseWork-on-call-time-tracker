@@ -152,6 +152,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Entries of Bob Nowak'), findsOneWidget);
     expect(find.text('Night shift handover'), findsOneWidget);
+
+    // The owner fixes Bob's entry with a comment; Bob will see both (D-051).
+    await tester.ensureVisible(find.byTooltip('Edit entry'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit entry'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Bob Nowak’s entry'), findsOneWidget);
+    expect(find.text('Delete'), findsNothing);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Description'),
+      'Handover fixed',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Comment (optional)'),
+      '  Wrong description  ',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final edited = entries.entries.single;
+    expect(edited.uid, 'u2');
+    expect(edited.description, 'Handover fixed');
+    expect(edited.rateMinor, 6000);
+    expect(edited.edit?.byUid, 'u1');
+    expect(edited.edit?.byName, 'Anna Kowalska');
+    expect(edited.edit?.comment, 'Wrong description');
   });
 
   testWidgets('employees have no Team tab', (tester) async {

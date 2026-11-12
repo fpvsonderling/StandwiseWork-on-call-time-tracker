@@ -15,13 +15,18 @@ import 'timer_screen.dart' show ProjectPicker, TypeSwitch;
 
 /// Opens the entry editor: a bottom sheet on phones, a dialog on wide
 /// screens (spec §5.1). Esc closes it.
+///
+/// An admin opening someone else's entry ([ownerName] is that person) gets
+/// a comment field instead of Delete; the owner then sees who changed the
+/// entry and why (D-051).
 Future<void> editEntry(
   BuildContext context,
   WidgetRef ref,
-  TimeEntry entry,
-) async {
+  TimeEntry entry, {
+  String? ownerName,
+}) async {
   final wide = MediaQuery.sizeOf(context).width >= Breakpoints.medium;
-  final editor = _EntryEditor(entry: entry);
+  final editor = _EntryEditor(entry: entry, ownerName: ownerName);
   if (wide) {
     await showDialog<void>(
       context: context,
@@ -48,9 +53,10 @@ Future<void> editEntry(
 }
 
 class _EntryEditor extends ConsumerStatefulWidget {
-  const _EntryEditor({required this.entry});
+  const _EntryEditor({required this.entry, this.ownerName});
 
   final TimeEntry entry;
+  final String? ownerName;
 
   @override
   ConsumerState<_EntryEditor> createState() => _EntryEditorState();
@@ -60,6 +66,7 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
   late final _description = TextEditingController(
     text: widget.entry.description,
   );
+  late final _comment = TextEditingController();
   late final _rate = TextEditingController(
     text: formatMinorPlain(widget.entry.rateMinor),
   );
@@ -70,9 +77,13 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
   late TimeOfDay _to = TimeOfDay.fromDateTime(widget.entry.end);
   String? _rateError;
 
+  /// An admin editing someone else's entry.
+  bool get _asAdmin => widget.entry.uid != ref.read(workContextProvider)?.uid;
+
   @override
   void dispose() {
     _description.dispose();
+    _comment.dispose();
     _rate.dispose();
     super.dispose();
   }
@@ -85,7 +96,9 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
 
   /// Changing project or type fills in the member's current rate (§5.2).
   void _refreshRate() {
-    final r = ref.read(timerActionsProvider).rateFor(_projectId, _type);
+    final r = ref
+        .read(timerActionsProvider)
+        .rateForMember(widget.entry.uid, _projectId, _type);
     _rate.text = formatMinorPlain(r);
   }
 
@@ -105,7 +118,12 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
       end: b.end,
     );
     try {
-      await ref.read(timerActionsProvider).update(updated);
+      final actions = ref.read(timerActionsProvider);
+      if (_asAdmin) {
+        await actions.editAsAdmin(updated, comment: _comment.text);
+      } else {
+        await actions.update(updated);
+      }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) showError(context, l10n.error(e));
@@ -146,6 +164,12 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
     final spanError = validateSpan(b.start, b.end);
     final time = timeFormat(context, use24h: ctx.settings.use24h);
     final current = _projectId == null ? null : byId[_projectId];
+    final asAdmin = _asAdmin;
+    if (asAdmin) {
+      // Keeps the member's rates loaded for _refreshRate.
+      ref.watch(memberRatesProvider((ctx.orgId, widget.entry.uid)));
+    }
+    final edit = widget.entry.edit;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
@@ -153,8 +177,17 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(l10n.entryEdit, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            asAdmin && widget.ownerName != null
+                ? l10n.entryEditOf(widget.ownerName!)
+                : l10n.entryEdit,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
+          if (edit != null) ...[
+            EditedNote(edit: edit),
+            const SizedBox(height: 16),
+          ],
           ProjectPicker(
             value: _projectId,
             projects: [
@@ -254,20 +287,34 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
               ),
             ],
           ),
+          if (asAdmin) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _comment,
+              maxLength: 500,
+              maxLines: 2,
+              minLines: 1,
+              decoration: InputDecoration(
+                labelText: l10n.editComment,
+                helperText: l10n.editCommentHelp,
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           Row(
             children: [
-              TextButton.icon(
-                onPressed: _delete,
-                icon: Icon(
-                  Icons.delete_outline,
-                  color: context.statusColors.stop,
+              if (!asAdmin)
+                TextButton.icon(
+                  onPressed: _delete,
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: context.statusColors.stop,
+                  ),
+                  label: Text(
+                    l10n.delete,
+                    style: TextStyle(color: context.statusColors.stop),
+                  ),
                 ),
-                label: Text(
-                  l10n.delete,
-                  style: TextStyle(color: context.statusColors.stop),
-                ),
-              ),
               const Spacer(),
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -281,6 +328,59 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
                 child: Text(l10n.save),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Changed by X on date" and the admin's comment (D-051).
+class EditedNote extends StatelessWidget {
+  const EditedNote({super.key, required this.edit});
+
+  final EntryEdit edit;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final at = edit.at;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.edit_note, color: theme.colorScheme.onSecondaryContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  at == null
+                      ? l10n.editedBy(edit.byName)
+                      : l10n.editedByOn(edit.byName, dateLabel(context, at)),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSecondaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (edit.comment.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    edit.comment,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
