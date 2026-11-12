@@ -18,30 +18,63 @@ class WelcomeScreen extends ConsumerStatefulWidget {
 
 class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   bool _busy = false;
+
+  /// A failed sign-in, shown in red.
   Object? _error;
 
-  Future<void> _signIn() async {
+  /// The account picker closed without signing in. On Android this also
+  /// happens when Credential Manager fails on its own (seen on Xiaomi), so
+  /// it is reported and the browser sign-in is offered (D-050).
+  AppException? _incomplete;
+
+  Future<void> _signIn({bool browser = false}) async {
     final l10n = context.l10n;
+    final auth = ref.read(authRepositoryProvider);
     setState(() {
       _busy = true;
       _error = null;
+      _incomplete = null;
     });
     try {
-      await ref
-          .read(authRepositoryProvider)
-          .signInWithGoogle(
-            messages: BrowserRedirectMessages(
-              success: l10n.authRedirectSuccess,
-              failure: l10n.authRedirectFailure,
-            ),
-          );
+      if (browser) {
+        await auth.signInWithGoogleInBrowser();
+      } else {
+        await auth.signInWithGoogle(
+          messages: BrowserRedirectMessages(
+            success: l10n.authRedirectSuccess,
+            failure: l10n.authRedirectFailure,
+          ),
+        );
+      }
     } on AppException catch (e) {
-      if (e.code != AppErrorCode.signInCancelled) _error = e;
+      debugPrint('Sign-in failed: ${e.code.name} ${e.detail ?? ''}');
+      if (e.code != AppErrorCode.signInCancelled) {
+        _error = e;
+      } else if (auth.hasBrowserSignIn && !browser) {
+        _incomplete = e;
+      }
     } catch (e) {
+      debugPrint('Sign-in failed: $e');
       _error = e;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Widget _details(BuildContext context, Object? e) {
+    final detail = e is AppException ? e.detail : e?.toString();
+    if (detail == null || detail.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: SelectableText(
+        context.l10n.errorDetails(detail),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.outline,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
   }
 
   @override
@@ -49,6 +82,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final config = ref.watch(appConfigProvider);
+    final auth = ref.watch(authRepositoryProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -112,6 +146,27 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                       l10n.error(_error!),
                       style: TextStyle(color: theme.colorScheme.error),
                       textAlign: TextAlign.center,
+                    ),
+                    _details(context, _error),
+                  ],
+                  if (_incomplete != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.welcomeSignInIncomplete,
+                      textAlign: TextAlign.center,
+                    ),
+                    _details(context, _incomplete),
+                  ],
+                  if (auth.hasBrowserSignIn &&
+                      (_error != null || _incomplete != null)) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : () => _signIn(browser: true),
+                        icon: const Icon(Icons.open_in_browser),
+                        label: Text(l10n.welcomeSignInBrowser),
+                      ),
                     ),
                   ],
                   const SizedBox(height: 24),

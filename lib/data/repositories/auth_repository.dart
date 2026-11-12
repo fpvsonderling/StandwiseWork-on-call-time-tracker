@@ -13,6 +13,15 @@ abstract interface class AuthRepository {
     required BrowserRedirectMessages messages,
   });
 
+  /// Whether [signInWithGoogleInBrowser] can be offered. True on Android,
+  /// where the account picker (Credential Manager) fails silently on some
+  /// phones, e.g. Xiaomi (docs/DECISIONS.md D-050).
+  bool get hasBrowserSignIn;
+
+  /// Signs in with Google through a browser tab instead of the system account
+  /// picker. Throws `AppException` on cancel or failure.
+  Future<AuthUser> signInWithGoogleInBrowser();
+
   Future<void> signOut();
 
   /// A fresh Firebase ID token for calling Cloud Functions, or `null` when

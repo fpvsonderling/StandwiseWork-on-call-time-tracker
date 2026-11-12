@@ -28,6 +28,13 @@ class UnconfiguredAuthRepository implements AuthRepository {
   }) => Future.error(const AppException(AppErrorCode.firebaseNotConfigured));
 
   @override
+  bool get hasBrowserSignIn => false;
+
+  @override
+  Future<AuthUser> signInWithGoogleInBrowser() =>
+      Future.error(const AppException(AppErrorCode.firebaseNotConfigured));
+
+  @override
   Future<void> signOut() async {}
 
   @override

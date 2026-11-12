@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:flutter/foundation.dart';
 
 import '../../core/auth/google_tokens.dart';
 import '../../core/errors.dart';
@@ -40,13 +41,36 @@ class FirebaseAuthRepository implements AuthRepository {
       final result = await _auth.signInWithCredential(cred);
       return _map(result.user)!;
     } on fb.FirebaseAuthException catch (e) {
-      throw AppException(
-        e.code == 'network-request-failed'
-            ? AppErrorCode.network
-            : AppErrorCode.signInFailed,
-        '${e.code}: ${e.message}',
-      );
+      throw _mapError(e);
     }
+  }
+
+  @override
+  bool get hasBrowserSignIn =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  @override
+  Future<AuthUser> signInWithGoogleInBrowser() async {
+    final provider = fb.GoogleAuthProvider()
+      ..addScope('email')
+      ..setCustomParameters({'prompt': 'select_account'});
+    try {
+      final result = await _auth.signInWithProvider(provider);
+      return _map(result.user)!;
+    } on fb.FirebaseAuthException catch (e) {
+      throw _mapError(e);
+    }
+  }
+
+  static AppException _mapError(fb.FirebaseAuthException e) {
+    final code = switch (e.code) {
+      'network-request-failed' => AppErrorCode.network,
+      'web-context-canceled' ||
+      'web-context-cancelled' ||
+      'canceled' => AppErrorCode.signInCancelled,
+      _ => AppErrorCode.signInFailed,
+    };
+    return AppException(code, '${e.code}: ${e.message}');
   }
 
   @override
