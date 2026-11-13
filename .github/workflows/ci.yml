@@ -301,13 +301,27 @@ jobs:
           key_id=$(echo "$ASC_KEY_ID" | tr -d '[:space:]')
           issuer=$(echo "$ASC_ISSUER_ID" | tr -d '[:space:]')
           ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --key "$keys/AuthKey_$key_id.p8" \
-            --key-id "$key_id" --issuer "$issuer" --wait --timeout 150m --output-format json > "$RUNNER_TEMP/notary.json"
-          status=$(plutil -extract status raw -o - "$RUNNER_TEMP/notary.json" 2>/dev/null || python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['status'])" "$RUNNER_TEMP/notary.json")
-          echo "Notarization: $status"
+          auth=(--key "$keys/AuthKey_$key_id.p8" --key-id "$key_id" --issuer "$issuer")
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" "${auth[@]}" --output-format json > "$RUNNER_TEMP/submit.json"
+          id=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['id'])" "$RUNNER_TEMP/submit.json")
+          echo "Notarization submission: $id"
+          # Poll ourselves: Apple can take a long time for a new certificate, and
+          # notarytool --wait gives up on the first network hiccup.
+          status="In Progress"
+          deadline=$(( $(date +%s) + 150 * 60 ))
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            if xcrun notarytool info "$id" "${auth[@]}" --output-format json > "$RUNNER_TEMP/notary.json" 2>/dev/null; then
+              status=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['status'])" "$RUNNER_TEMP/notary.json")
+              echo "$(date -u +%H:%M) Notarization: $status"
+              [ "$status" != "In Progress" ] && break
+            else
+              echo "$(date -u +%H:%M) Notarization: status check failed, retrying"
+            fi
+            sleep 60
+          done
           if [ "$status" != "Accepted" ]; then
-            id=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['id'])" "$RUNNER_TEMP/notary.json")
-            xcrun notarytool log "$id" --key "$keys/AuthKey_$key_id.p8" --key-id "$key_id" --issuer "$issuer"
+            xcrun notarytool log "$id" "${auth[@]}" || true
+            echo "::error::Notarization $id ended as: $status"
             exit 1
           fi
           xcrun stapler staple "$APP"
