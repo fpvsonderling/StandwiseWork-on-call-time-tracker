@@ -75,7 +75,11 @@ void main() {
     expect(e.durationMin, 90);
     expect(e.rateMinor, 6000);
     expect(e.type, EntryType.work);
-    expect(find.text('Today'), findsOneWidget);
+    // The entry is dated by its start, which is yesterday shortly after midnight.
+    final startedToday =
+        DateTime.now().subtract(const Duration(minutes: 90)).day ==
+        DateTime.now().day;
+    expect(find.text(startedToday ? 'Today' : 'Yesterday'), findsOneWidget);
     expect(find.text('Night shift'), findsOneWidget);
     expect(find.text('1:30'), findsWidgets);
   });
