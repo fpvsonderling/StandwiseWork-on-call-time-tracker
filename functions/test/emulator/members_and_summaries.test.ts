@@ -17,6 +17,7 @@ import {
 import { createOrganizationImpl } from '../../src/orgs/create_organization.ts';
 import { deleteOrganizationImpl } from '../../src/orgs/delete_organization.ts';
 import { recomputeSummary } from '../../src/summaries/recompute.ts';
+import { repriceEntries } from '../../src/summaries/reprice.ts';
 import { purgeDeletedEntriesImpl } from '../../src/summaries/triggers.ts';
 
 let app: App;
@@ -222,5 +223,27 @@ describe('summaries', () => {
     assert.equal(await purgeDeletedEntriesImpl(db), 1);
     const left = (await db.collection(`orgs/${orgId}/entries`).get()).docs.map((d) => d.id).sort();
     assert.deepEqual(left, ['kept', 'recent']);
+  });
+  it('take a changed rate unless approved or set by hand (D-054)', async () => {
+    await entry('zero', '2026-11-02T08:00:00Z', 60, { projectId: 'p1', rateMinor: 0 });
+    await entry('old', '2026-11-03T08:00:00Z', 60, { projectId: 'p1', rateMinor: 6000 });
+    await entry('sb', '2026-11-03T20:00:00Z', 60, { projectId: 'p1', type: 'standby', rateMinor: 0 });
+    await entry('hand', '2026-11-04T08:00:00Z', 60, { projectId: 'p1', rateMinor: 7777 });
+    await entry('locked', '2026-11-05T08:00:00Z', 60, { projectId: 'p1', rateMinor: 6000, approvedBy: admin.uid });
+    await entry('other', '2026-11-05T10:00:00Z', 60, { projectId: 'p2', rateMinor: 0 });
+    await entry('none', '2026-11-05T12:00:00Z', 60, { projectId: null, rateMinor: 0 });
+
+    const n = await repriceEntries(db, orgId, anna.uid, 'p1', { work: 6000, standby: 0 }, { work: 15000, standby: 9000 });
+    assert.equal(n, 3);
+    const rate = async (id: string) => (await db.doc(`orgs/${orgId}/entries/${id}`).get()).get('rateMinor');
+    assert.equal(await rate('zero'), 15000);
+    assert.equal(await rate('old'), 15000);
+    assert.equal(await rate('sb'), 9000);
+    assert.equal(await rate('hand'), 7777);
+    assert.equal(await rate('locked'), 6000);
+    assert.equal(await rate('other'), 0);
+
+    assert.equal(await repriceEntries(db, orgId, anna.uid, '_none', { work: 0, standby: 0 }, { work: 100, standby: 0 }), 1);
+    assert.equal(await rate('none'), 100);
   });
 });

@@ -754,33 +754,54 @@ class _RatesToReview extends ConsumerWidget {
     String rate(int minor) =>
         minor == 0 ? '—' : '${money(context, minor, currency)}/h';
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // A narrow phone has no room for a pill, text and two buttons in
+        // one row (a ListTile squeezed the name to one letter per line), so
+        // the buttons go under the text.
         for (final item in items)
-          ListTile(
-            leading: RateStatusPill(rate: item.rate),
-            title: Text(
-              '${nameOf(item.uid)} · ${projectName(item.rate.projectId == noProjectKey ? null : item.rate.projectId)}',
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${nameOf(item.uid)} · ${projectName(item.rate.projectId == noProjectKey ? null : item.rate.projectId)}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '${l10n.typeWork} ${rate(item.rate.workRateMinor)} · '
+                      '${l10n.typeStandby} ${rate(item.rate.standbyRateMinor)}',
+                      style: const TextStyle(fontFeatures: tabularFigures),
+                    ),
+                    RateStatusPill(rate: item.rate),
+                  ],
+                ),
+                if (writable)
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => review(item, approved: false),
+                          child: Text(l10n.rateReject),
+                        ),
+                        FilledButton(
+                          onPressed: () => review(item, approved: true),
+                          child: Text(l10n.rateApprove),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
-            subtitle: Text(
-              '${l10n.typeWork} ${rate(item.rate.workRateMinor)} · '
-              '${l10n.typeStandby} ${rate(item.rate.standbyRateMinor)}',
-              style: const TextStyle(fontFeatures: tabularFigures),
-            ),
-            trailing: writable
-                ? Wrap(
-                    spacing: 8,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => review(item, approved: false),
-                        child: Text(l10n.rateReject),
-                      ),
-                      FilledButton(
-                        onPressed: () => review(item, approved: true),
-                        child: Text(l10n.rateApprove),
-                      ),
-                    ],
-                  )
-                : null,
           ),
       ],
     );

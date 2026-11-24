@@ -248,7 +248,7 @@
   "typeStandby": "Standby",
   "perHour": "{currency}/h",
   "rateInvalid": "Enter an amount like 45 or 45,50",
-  "projectsIntro": "Set your own hourly rate for Work and Standby on each project. New entries use the rate valid when they are created.",
+  "projectsIntro": "Set your own hourly rate for Work and Standby on each project. A changed rate also applies to your entries an admin has not approved yet.",
   "projectsActive": "Projects ({count})",
   "@projectsActive": {
     "placeholders": {
