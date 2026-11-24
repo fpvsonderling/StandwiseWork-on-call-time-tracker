@@ -31,8 +31,32 @@ abstract interface class EntriesRepository {
   Future<void> updateEntry(String orgId, TimeEntry entry);
 
   /// An admin changes someone else's [entry]; [edit] (who and why) is saved
-  /// with it so the owner can see it (D-051).
-  Future<void> editEntryAsAdmin(String orgId, TimeEntry entry, EntryEdit edit);
+  /// with it so the owner can see it (D-051). [original] is the owner's
+  /// version before the first admin change (kept on later changes).
+  Future<void> editEntryAsAdmin(
+    String orgId,
+    TimeEntry entry,
+    EntryEdit edit, {
+    required EntrySnapshot original,
+  });
+
+  /// An admin deletes ([deleted] true) or restores someone else's [entry],
+  /// signed like an edit; the owner sees it as "Deleted by".
+  Future<void> setDeletedAsAdmin(
+    String orgId,
+    TimeEntry entry,
+    EntryEdit edit, {
+    required EntrySnapshot original,
+    required bool deleted,
+  });
+
+  /// An admin approves [entryIds] ([approval] set) or reopens them
+  /// ([approval] `null`). Approved entries are locked for their owner.
+  Future<void> setApproval(
+    String orgId,
+    List<String> entryIds,
+    EntryApproval? approval,
+  );
 
   /// Soft delete ([deleted] true) or undo.
   Future<void> setDeleted(
@@ -41,14 +65,16 @@ abstract interface class EntriesRepository {
     required bool deleted,
   });
 
-  /// Entries that start in `[from, to)`, newest first, without deleted ones.
-  /// [uid] limits them to one person (required for employees); `null` reads
-  /// the whole organization (admins).
+  /// Entries that start in `[from, to)`, newest first, without deleted ones
+  /// ([includeAdminDeleted] keeps those an admin deleted, so their owner sees
+  /// them). [uid] limits them to one person (required for employees); `null`
+  /// reads the whole organization (admins).
   Stream<List<TimeEntry>> watchEntries(
     String orgId, {
     required String? uid,
     required DateTime from,
     DateTime? to,
+    bool includeAdminDeleted = false,
   });
 
   /// Monthly summaries. [uid] limits them to one person (required for

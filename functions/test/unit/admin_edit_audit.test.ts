@@ -33,4 +33,13 @@ describe('adminEditAudit', () => {
     assert.equal(adminEditAudit('e1', signed(t1), { ...signed(t1), description: 'y' }), null);
     assert.equal(adminEditAudit('e1', signed(t1), undefined), null);
   });
+
+  it('logs an admin delete and restore as such', () => {
+    const removed = signed(t1, { deleted: true, deletedBy: 'bob' });
+    assert.equal(adminEditAudit('e1', base, removed)?.action, 'entry.delete');
+    assert.equal(
+      adminEditAudit('e1', removed, signed(t2, { deleted: false, deletedBy: null }))?.action,
+      'entry.restore',
+    );
+  });
 });

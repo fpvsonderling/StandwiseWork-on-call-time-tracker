@@ -8,7 +8,9 @@ import '../../data/providers.dart';
 import '../../domain/durations.dart';
 import '../../domain/money.dart';
 import '../../domain/projects.dart';
+import '../common/approval_widgets.dart';
 import '../common/widgets.dart';
+import '../timer/timer_actions.dart';
 import '../placeholder/placeholder_screens.dart';
 
 /// Projects & rates (spec §5.4). Everyone sets their own Work/Standby rate
@@ -104,21 +106,37 @@ class _ProjectRow extends ConsumerWidget {
     void save({int? work, int? standby}) {
       final ctx = ref.read(workContextProvider);
       if (ctx == null) return;
-      ref
-          .read(projectsRepositoryProvider)
-          .saveRate(
-            ctx.orgId,
-            ctx.uid,
-            ProjectRate(
-              projectId: key,
-              workRateMinor: work ?? rate?.workRateMinor ?? 0,
-              standbyRateMinor: standby ?? rate?.standbyRateMinor ?? 0,
+      Future(
+        () => ref
+            .read(timerActionsProvider)
+            .saveMyRate(
+              ProjectRate(
+                projectId: key,
+                workRateMinor: work ?? rate?.workRateMinor ?? 0,
+                standbyRateMinor: standby ?? rate?.standbyRateMinor ?? 0,
+              ),
             ),
-          )
-          .catchError((Object e) {
-            if (context.mounted) showError(context, l10n.error(e));
-          });
+      ).catchError((Object e) {
+        if (context.mounted) showError(context, l10n.error(e));
+      });
     }
+
+    final r = rate;
+    final status = r == null || r.isEmpty
+        ? null
+        : Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                RateStatusPill(rate: r),
+                if (r.status == RateStatus.rejected &&
+                    (r.review?.comment.isNotEmpty ?? false))
+                  Text(r.review!.comment, style: theme.textTheme.bodySmall),
+              ],
+            ),
+          );
 
     final title = Row(
       children: [
@@ -173,17 +191,24 @@ class _ProjectRow extends ConsumerWidget {
           child: LayoutBuilder(
             builder: (context, c) {
               if (c.maxWidth >= Breakpoints.medium) {
-                return Row(
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Expanded(flex: 3, child: title),
-                    const SizedBox(width: 12),
-                    Expanded(flex: 2, child: fields[0]),
-                    const SizedBox(width: 12),
-                    Expanded(flex: 2, child: fields[1]),
+                    Row(
+                      children: [
+                        Expanded(flex: 3, child: title),
+                        const SizedBox(width: 12),
+                        Expanded(flex: 2, child: fields[0]),
+                        const SizedBox(width: 12),
+                        Expanded(flex: 2, child: fields[1]),
+                      ],
+                    ),
+                    ?status,
                   ],
                 );
               }
               return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   title,
                   const SizedBox(height: 12),
@@ -194,6 +219,7 @@ class _ProjectRow extends ConsumerWidget {
                       Expanded(child: fields[1]),
                     ],
                   ),
+                  ?status,
                 ],
               );
             },

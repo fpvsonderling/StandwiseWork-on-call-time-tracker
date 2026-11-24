@@ -159,7 +159,7 @@ void main() {
     await tester.tap(find.byTooltip('Edit entry'));
     await tester.pumpAndSettle();
     expect(find.text('Edit Bob Nowak’s entry'), findsOneWidget);
-    expect(find.text('Delete'), findsNothing);
+    expect(find.text('Delete'), findsOneWidget);
     await tester.enterText(
       find.widgetWithText(TextField, 'Description'),
       'Handover fixed',
@@ -177,6 +177,7 @@ void main() {
     expect(edited.edit?.byUid, 'u1');
     expect(edited.edit?.byName, 'Anna Kowalska');
     expect(edited.edit?.comment, 'Wrong description');
+    expect(edited.editedFrom?.description, 'Night shift handover');
   });
 
   testWidgets('employees have no Team tab', (tester) async {

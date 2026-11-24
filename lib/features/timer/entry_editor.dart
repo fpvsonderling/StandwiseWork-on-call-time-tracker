@@ -8,6 +8,7 @@ import '../../domain/date_ranges.dart';
 import '../../domain/durations.dart';
 import '../../domain/models.dart';
 import '../../domain/money.dart';
+import '../common/approval_widgets.dart';
 import '../common/format.dart';
 import '../common/widgets.dart';
 import 'timer_actions.dart';
@@ -120,7 +121,11 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
     try {
       final actions = ref.read(timerActionsProvider);
       if (_asAdmin) {
-        await actions.editAsAdmin(updated, comment: _comment.text);
+        await actions.editAsAdmin(
+          updated,
+          before: widget.entry,
+          comment: _comment.text,
+        );
       } else {
         await actions.update(updated);
       }
@@ -146,6 +151,45 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
             action: SnackBarAction(
               label: l10n.undo,
               onPressed: () => actions.setDeleted(id, deleted: false),
+            ),
+          ),
+        );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.error(e))));
+    }
+  }
+
+  /// An admin deletes someone else's entry; the owner sees it crossed out
+  /// with the comment.
+  Future<void> _deleteAsAdmin() async {
+    final l10n = context.l10n;
+    final name = widget.ownerName ?? '';
+    final ok = await confirm(
+      context,
+      title: l10n.entryDeleteAsAdminTitle(name),
+      body: l10n.entryDeleteAsAdminBody(name),
+      action: l10n.delete,
+    );
+    if (!ok || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final actions = ref.read(timerActionsProvider);
+    final entry = widget.entry;
+    final comment = _comment.text;
+    Navigator.pop(context);
+    try {
+      await actions.setDeletedAsAdmin(entry, deleted: true, comment: comment);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(l10n.entryDeleted),
+            action: SnackBarAction(
+              label: l10n.undo,
+              onPressed: () => actions.setDeletedAsAdmin(
+                entry,
+                deleted: false,
+                comment: comment,
+              ),
             ),
           ),
         );
@@ -185,7 +229,14 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
           ),
           const SizedBox(height: 16),
           if (edit != null) ...[
-            EditedNote(edit: edit),
+            EditedNote(edit: edit, entry: widget.entry),
+            const SizedBox(height: 16),
+          ],
+          if (widget.entry.approval case final approval?) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ApprovedPill(approval: approval),
+            ),
             const SizedBox(height: 16),
           ],
           ProjectPicker(
@@ -303,18 +354,17 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
           const SizedBox(height: 24),
           Row(
             children: [
-              if (!asAdmin)
-                TextButton.icon(
-                  onPressed: _delete,
-                  icon: Icon(
-                    Icons.delete_outline,
-                    color: context.statusColors.stop,
-                  ),
-                  label: Text(
-                    l10n.delete,
-                    style: TextStyle(color: context.statusColors.stop),
-                  ),
+              TextButton.icon(
+                onPressed: asAdmin ? _deleteAsAdmin : _delete,
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: context.statusColors.stop,
                 ),
+                label: Text(
+                  l10n.delete,
+                  style: TextStyle(color: context.statusColors.stop),
+                ),
+              ),
               const Spacer(),
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -335,17 +385,31 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
   }
 }
 
-/// "Changed by X on date" and the admin's comment (D-051).
-class EditedNote extends StatelessWidget {
-  const EditedNote({super.key, required this.edit});
+/// "Changed by X on date", the admin's comment (D-051) and the owner's
+/// values from before the change.
+class EditedNote extends ConsumerWidget {
+  const EditedNote({super.key, required this.edit, required this.entry});
 
   final EntryEdit edit;
+  final TimeEntry entry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final at = edit.at;
+    final ctx = ref.watch(workContextProvider);
+    final from = entry.editedFrom;
+    final before = from == null || ctx == null
+        ? null
+        : entryBeforeText(
+            context,
+            before: from,
+            now: entry,
+            projects: ref.watch(projectsByIdProvider),
+            currency: ctx.currency,
+            use24h: ctx.settings.use24h,
+          );
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -375,6 +439,15 @@ class EditedNote extends StatelessWidget {
                   Text(
                     edit.comment,
                     style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                ],
+                if (before != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    before,
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSecondaryContainer,
                     ),
                   ),
