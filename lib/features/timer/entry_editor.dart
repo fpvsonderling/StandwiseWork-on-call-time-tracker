@@ -276,6 +276,10 @@ class _EntryEditorState extends ConsumerState<_EntryEditor> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  textInputAction: TextInputAction.done,
+                  // The iPhone number pad has no Done key.
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   decoration: InputDecoration(
                     labelText: l10n.rate,
                     suffixText: l10n.perHour(ctx.currency),

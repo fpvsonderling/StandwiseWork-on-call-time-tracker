@@ -4,6 +4,17 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-25
+
+### Changed
+
+- Changing a rate now recalculates amounts: your entries in that project that an admin has not approved yet (and entries saved without a rate) use the new rate. Approved entries and rates typed in by hand on one entry keep theirs.
+
+### Fixed
+
+- Team on a phone: "Rates awaiting approval" showed the name one letter per line; the Approve and Reject buttons now sit under the name and rates.
+- iPhone: the number keyboard for rates had no way to close it; tap anywhere outside the field (or scroll) to close it and save.
+
 ## [0.1.3] - 2026-11-24
 
 ### Added

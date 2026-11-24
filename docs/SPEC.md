@@ -119,7 +119,7 @@ Navigation: **Timer**, **My reports**, **Projects & rates**, **Team** (admins/ow
 
 ### 5.2 Rates
 - Each member has two own rates per project: **Work** and **Standby** (per hour, 2 decimals, accept comma and dot).
-- An entry stores the **rate at the time it was created** (`rateMinor`). Changing a project rate affects new entries only.
+- An entry stores the **rate at the time it was created** (`rateMinor`). When a member's rate changes, their entries of that project that an admin has not approved yet and that had the old rate (or none) take the new rate (D-054); approved entries and rates typed in by hand keep theirs.
 - Changing an entry's project or type fills in the member's current rate. The rate of a single entry can also be typed in manually.
 - Entry amount = `rateMinor × durationMinutes / 60`. Store and compute money in **minor units (int)**, never `double`.
 - Rates are visible only to their owner and to admins/owner of the organization.

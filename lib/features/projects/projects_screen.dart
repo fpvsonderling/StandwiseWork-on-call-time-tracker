@@ -49,6 +49,7 @@ class ProjectsScreen extends ConsumerWidget {
             )
           : null,
       body: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.only(bottom: 96),
         children: [
           Padding(
@@ -346,6 +347,9 @@ class _RateFieldState extends State<RateField> {
     keyboardType: const TextInputType.numberWithOptions(decimal: true),
     textInputAction: TextInputAction.done,
     onSubmitted: (_) => _commit(),
+    // The iPhone number pad has no Done key: a tap anywhere else closes it
+    // (and saves, through the focus listener).
+    onTapOutside: (_) => _focus.unfocus(),
     style: const TextStyle(fontFeatures: tabularFigures),
     decoration: InputDecoration(
       labelText: widget.label,
