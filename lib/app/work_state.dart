@@ -123,7 +123,8 @@ DateTime historyStart(DateTime now, int days, int weekStart) {
   return back.isBefore(week) ? back : week;
 }
 
-/// The signed-in member's own entries for the Timer screen.
+/// The signed-in member's own entries for the Timer screen, with those an
+/// admin deleted (shown crossed out, not counted).
 final myRecentEntriesProvider = StreamProvider<List<TimeEntry>>((ref) {
   final ctx = ref.watch(workContextProvider);
   if (ctx == null) return Stream.value(const []);
@@ -131,7 +132,12 @@ final myRecentEntriesProvider = StreamProvider<List<TimeEntry>>((ref) {
   final from = historyStart(DateTime.now(), days, ctx.settings.weekStart);
   return ref
       .watch(entriesRepositoryProvider)
-      .watchEntries(ctx.orgId, uid: ctx.uid, from: from);
+      .watchEntries(
+        ctx.orgId,
+        uid: ctx.uid,
+        from: from,
+        includeAdminDeleted: true,
+      );
 });
 
 /// Writes the server rejected after the fact (shown as a SnackBar).

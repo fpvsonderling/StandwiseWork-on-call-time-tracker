@@ -67,23 +67,69 @@ class FirebaseProjectsRepository implements ProjectsRepository {
   @override
   Stream<Map<String, ProjectRate>> watchRates(String orgId, String uid) =>
       _rates(orgId, uid).snapshots().map(
-        (s) => {
-          for (final d in s.docs)
-            d.id: ProjectRate(
-              projectId: d.id,
-              workRateMinor: d.data()['workRateMinor'] as int? ?? 0,
-              standbyRateMinor: d.data()['standbyRateMinor'] as int? ?? 0,
-            ),
-        },
+        (s) => {for (final d in s.docs) d.id: _rate(d.id, d.data())},
       );
 
+  static ProjectRate _rate(String id, Map<String, dynamic> m) => ProjectRate(
+    projectId: id,
+    workRateMinor: m['workRateMinor'] as int? ?? 0,
+    standbyRateMinor: m['standbyRateMinor'] as int? ?? 0,
+    status: RateStatus.fromWire(m['status'] as String?),
+    review: m['reviewedBy'] is String
+        ? RateReview(
+            byUid: m['reviewedBy'] as String,
+            byName: m['reviewedByName'] as String? ?? '',
+            at: (m['reviewedAt'] as Timestamp?)?.toDate(),
+            comment: m['reviewComment'] as String? ?? '',
+          )
+        : null,
+  );
+
+  static Map<String, Object?> _reviewData(RateReview r) => {
+    'reviewedBy': r.byUid,
+    'reviewedByName': r.byName,
+    'reviewedAt': FieldValue.serverTimestamp(),
+    'reviewComment': r.comment.isEmpty ? null : r.comment,
+  };
+
   @override
-  Future<void> saveRate(String orgId, String uid, ProjectRate rate) async {
+  Future<void> saveRate(
+    String orgId,
+    String uid,
+    ProjectRate rate, {
+    RateReview? selfApproval,
+  }) async {
     _sync.track(
       _rates(orgId, uid).doc(rate.projectId).set({
         'workRateMinor': rate.workRateMinor,
         'standbyRateMinor': rate.standbyRateMinor,
+        'status': selfApproval == null
+            ? RateStatus.pending.wire
+            : RateStatus.approved.wire,
+        if (selfApproval != null) ..._reviewData(selfApproval),
         'updatedAt': FieldValue.serverTimestamp(),
+      }),
+      mapError: appErrorFrom,
+    );
+  }
+
+  @override
+  Future<void> reviewRate(
+    String orgId,
+    String uid,
+    ProjectRate rate,
+    RateReview review, {
+    required bool approved,
+  }) async {
+    _sync.track(
+      _rates(orgId, uid).doc(rate.projectId).update({
+        // The values the admin saw; rules reject the write if they changed.
+        'workRateMinor': rate.workRateMinor,
+        'standbyRateMinor': rate.standbyRateMinor,
+        'status': approved
+            ? RateStatus.approved.wire
+            : RateStatus.rejected.wire,
+        ..._reviewData(review),
       }),
       mapError: appErrorFrom,
     );

@@ -217,7 +217,21 @@ class UnconfiguredProjectsRepository implements ProjectsRepository {
       Stream.value(const {});
 
   @override
-  Future<void> saveRate(String orgId, String uid, ProjectRate rate) => _fail();
+  Future<void> saveRate(
+    String orgId,
+    String uid,
+    ProjectRate rate, {
+    RateReview? selfApproval,
+  }) => _fail();
+
+  @override
+  Future<void> reviewRate(
+    String orgId,
+    String uid,
+    ProjectRate rate,
+    RateReview review, {
+    required bool approved,
+  }) => _fail();
 }
 
 class UnconfiguredEntriesRepository implements EntriesRepository {
@@ -258,7 +272,24 @@ class UnconfiguredEntriesRepository implements EntriesRepository {
   Future<void> editEntryAsAdmin(
     String orgId,
     TimeEntry entry,
-    EntryEdit edit,
+    EntryEdit edit, {
+    required EntrySnapshot original,
+  }) => _fail();
+
+  @override
+  Future<void> setDeletedAsAdmin(
+    String orgId,
+    TimeEntry entry,
+    EntryEdit edit, {
+    required EntrySnapshot original,
+    required bool deleted,
+  }) => _fail();
+
+  @override
+  Future<void> setApproval(
+    String orgId,
+    List<String> entryIds,
+    EntryApproval? approval,
   ) => _fail();
 
   @override
@@ -274,6 +305,7 @@ class UnconfiguredEntriesRepository implements EntriesRepository {
     required String? uid,
     required DateTime from,
     DateTime? to,
+    bool includeAdminDeleted = false,
   }) => Stream.value(const []);
 
   @override

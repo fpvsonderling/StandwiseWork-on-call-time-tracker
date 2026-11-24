@@ -63,6 +63,9 @@ class TimeEntry {
     this.description = '',
     this.deleted = false,
     this.edit,
+    this.editedFrom,
+    this.deletedBy,
+    this.approval,
   });
 
   final String id;
@@ -77,6 +80,34 @@ class TimeEntry {
 
   /// Set when an admin last changed someone else's entry (D-051).
   final EntryEdit? edit;
+
+  /// The owner's own version, saved by the first admin change, so the
+  /// owner sees what was there before.
+  final EntrySnapshot? editedFrom;
+
+  /// The admin who deleted this entry ([deleted] is then true). `null` when
+  /// the owner deleted it or it is not deleted.
+  final String? deletedBy;
+
+  /// Set when an admin approved the entry: the owner can no longer change
+  /// or delete it (firestore.rules).
+  final EntryApproval? approval;
+
+  bool get isApproved => approval != null;
+
+  bool get deletedByAdmin => deleted && deletedBy != null;
+
+  /// The owner may still change or delete it.
+  bool get ownerEditable => !isApproved && deletedBy == null;
+
+  EntrySnapshot get snapshot => EntrySnapshot(
+    projectId: projectId,
+    type: type,
+    rateMinor: rateMinor,
+    start: start,
+    end: end,
+    description: description,
+  );
 
   int get durationMin => durationMinutes(start, end);
 
@@ -104,7 +135,49 @@ class TimeEntry {
     description: description ?? this.description,
     deleted: deleted ?? this.deleted,
     edit: edit,
+    editedFrom: editedFrom,
+    deletedBy: deletedBy,
+    approval: approval,
   );
+}
+
+/// The fields of an entry an admin can change, as they were before.
+class EntrySnapshot {
+  const EntrySnapshot({
+    required this.projectId,
+    required this.type,
+    required this.rateMinor,
+    required this.start,
+    required this.end,
+    required this.description,
+  });
+
+  final String? projectId;
+  final EntryType type;
+  final int rateMinor;
+  final DateTime start;
+  final DateTime end;
+  final String description;
+
+  /// Same values as [e] now: nothing to show as "before".
+  bool sameAs(TimeEntry e) =>
+      projectId == e.projectId &&
+      type == e.type &&
+      rateMinor == e.rateMinor &&
+      start == e.start &&
+      end == e.end &&
+      description == e.description;
+}
+
+/// Who approved an entry and when.
+class EntryApproval {
+  const EntryApproval({required this.byUid, required this.byName, this.at});
+
+  final String byUid;
+  final String byName;
+
+  /// Server time; `null` until the write has synced.
+  final DateTime? at;
 }
 
 /// Who changed an entry on its owner's behalf, when, and why (D-051).

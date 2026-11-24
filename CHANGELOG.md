@@ -4,6 +4,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+
+- Rate approval: every rate an employee sets waits for an admin. Projects & rates and the Timer show "Pending approval", "Approved" or "Rejected" (with the admin's reason). Team lists the rates awaiting approval with Approve and Reject, and marks amounts that use a rate not approved yet with ⚠. An admin's own rate is approved when saved.
+- Hours approval: in Team → a person's entries, admins approve entries one by one or all at once ("Approve hours"), for the chosen range and project (end of a month or of a project). Approved entries are locked for their owner, also on the server; admins can still change them or reopen them.
+- Admins can delete a member's entry (with an optional comment). The member sees it crossed out as "Deleted by …", not counted, and sees what an admin changed ("Before: …").
+
 ### Changed
 
 - TestFlight builds reuse permanent signing certificates, so Apple no longer emails "certificate revoked" after every build (after a one-time setup).

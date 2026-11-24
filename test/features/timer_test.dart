@@ -22,6 +22,7 @@ void main() {
           projectId: 'p1',
           workRateMinor: 6000,
           standbyRateMinor: 1500,
+          status: RateStatus.approved,
         ),
       },
     );

@@ -601,3 +601,164 @@ describe('everything else', () => {
     await assertFails(setDoc(doc(db('alice'), 'anything', 'x'), { a: 1 }));
   });
 });
+
+describe('rate approval', () => {
+  const rateDoc = (f: Firestore, uid: string) =>
+    doc(f, 'orgs', ORG_A, 'members', uid, 'rates', 'p1');
+  const review = (uid: string, status: string, extra: Record<string, unknown> = {}) => ({
+    status,
+    reviewedBy: uid,
+    reviewedByName: `${uid} Test`,
+    reviewedAt: serverTimestamp(),
+    reviewComment: null,
+    ...extra,
+  });
+
+  it('saves a member’s rate as pending, never approved', async () => {
+    await assertSucceeds(setDoc(rateDoc(db('carol'), 'carol'), rate({ status: 'pending' })));
+    // Older app versions send no status.
+    await assertSucceeds(setDoc(rateDoc(db('carol'), 'carol'), rate()));
+    await assertFails(setDoc(rateDoc(db('carol'), 'carol'), rate({ status: 'approved' })));
+    await assertFails(
+      setDoc(rateDoc(db('carol'), 'carol'), rate(review('carol', 'approved'))),
+    );
+    await assertFails(
+      setDoc(rateDoc(db('carol'), 'carol'), rate({ status: 'pending', reviewedBy: 'bob' })),
+    );
+  });
+
+  it('lets an admin save their own rate approved, signed', async () => {
+    await assertSucceeds(setDoc(rateDoc(db('bob'), 'bob'), rate(review('bob', 'approved'))));
+    await assertFails(
+      setDoc(rateDoc(db('bob'), 'bob'), rate(review('bob', 'approved', { reviewedByName: 'X' }))),
+    );
+  });
+
+  it('lets admins approve or reject a member’s rate without changing it', async () => {
+    const d = rateDoc(db('bob'), 'carol');
+    await assertSucceeds(updateDoc(d, review('bob', 'approved')));
+    await assertSucceeds(
+      updateDoc(rateDoc(db('alice'), 'carol'), review('alice', 'rejected', { reviewComment: 'Too high' })),
+    );
+    // The values the admin saw are checked: a changed rate is rejected.
+    await assertSucceeds(updateDoc(d, { workRateMinor: 4000, ...review('bob', 'approved') }));
+    await assertFails(updateDoc(d, { workRateMinor: 9000, ...review('bob', 'approved') }));
+    await assertFails(updateDoc(d, review('bob', 'pending')));
+    await assertFails(updateDoc(d, review('alice', 'approved')));
+    await assertFails(updateDoc(d, review('bob', 'approved', { reviewedAt: Timestamp.now() })));
+  });
+
+  it('is not open to employees', async () => {
+    await assertFails(updateDoc(rateDoc(db('carol'), 'carol'), review('carol', 'approved')));
+  });
+
+  it('goes back to pending when the member changes the rate', async () => {
+    await assertSucceeds(updateDoc(rateDoc(db('bob'), 'carol'), review('bob', 'approved')));
+    await assertSucceeds(
+      setDoc(rateDoc(db('carol'), 'carol'), rate({ workRateMinor: 4500, status: 'pending' })),
+    );
+    // The member's write replaces the review, so the admin approves again.
+    await assertSucceeds(updateDoc(rateDoc(db('bob'), 'carol'), review('bob', 'approved')));
+  });
+});
+
+describe('entry approval and admin deletes', () => {
+  const entries = (f: Firestore, org = ORG_A) => collection(f, 'orgs', org, 'entries');
+  const approve = (uid: string, extra: Record<string, unknown> = {}) => ({
+    approvedBy: uid,
+    approvedByName: `${uid} Test`,
+    approvedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...extra,
+  });
+  const reopen = {
+    approvedBy: null,
+    approvedByName: null,
+    approvedAt: null,
+    updatedAt: serverTimestamp(),
+  };
+  const original = {
+    projectId: 'p1',
+    type: 'work',
+    rateMinor: 5000,
+    start: t0,
+    end: t8h,
+    description: 'Release',
+  };
+  const signed = (uid: string, extra: Record<string, unknown> = {}) => ({
+    updatedAt: serverTimestamp(),
+    editedBy: uid,
+    editedByName: `${uid} Test`,
+    editedAt: serverTimestamp(),
+    editComment: null,
+    editedFrom: original,
+    ...extra,
+  });
+
+  it('lets admins approve and reopen entries, their own too', async () => {
+    await assertSucceeds(updateDoc(doc(entries(db('bob')), 'carol-1'), approve('bob')));
+    await assertSucceeds(updateDoc(doc(entries(db('bob')), 'carol-1'), reopen));
+    await assertSucceeds(updateDoc(doc(entries(db('bob')), 'bob-1'), approve('bob')));
+    await assertSucceeds(updateDoc(doc(entries(db('alice')), 'carol-1'), approve('alice')));
+  });
+
+  it('rejects forged approvals and approvals by employees', async () => {
+    const d = doc(entries(db('bob')), 'carol-1');
+    await assertFails(updateDoc(d, approve('alice')));
+    await assertFails(updateDoc(d, approve('bob', { approvedByName: 'Boss' })));
+    await assertFails(updateDoc(d, approve('bob', { approvedAt: Timestamp.now() })));
+    await assertFails(updateDoc(d, approve('bob', { description: 'sneaky' })));
+    await assertFails(updateDoc(doc(entries(db('carol')), 'carol-1'), approve('carol')));
+    await assertFails(
+      setDoc(doc(entries(db('carol')), 'carol-9'), entry('carol', approve('bob'))),
+    );
+  });
+
+  it('locks an approved entry for its owner', async () => {
+    await assertSucceeds(updateDoc(doc(entries(db('bob')), 'carol-1'), approve('bob')));
+    const own = doc(entries(db('carol')), 'carol-1');
+    await assertFails(updateDoc(own, { description: 'Changed', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(own, { deleted: true, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(own, reopen));
+    // Admins can still correct it; it stays approved.
+    await assertSucceeds(
+      updateDoc(doc(entries(db('bob')), 'carol-1'), signed('bob', { description: 'Fixed' })),
+    );
+    // Reopened, the owner can edit again.
+    await assertSucceeds(updateDoc(doc(entries(db('bob')), 'carol-1'), reopen));
+    await assertSucceeds(updateDoc(own, { description: 'Mine', updatedAt: serverTimestamp() }));
+  });
+
+  it('keeps the owner’s version from before the first admin change', async () => {
+    const d = doc(entries(db('bob')), 'carol-1');
+    await assertFails(
+      updateDoc(d, signed('bob', { description: 'Fixed', editedFrom: { ...original, rateMinor: 1 } })),
+    );
+    await assertSucceeds(updateDoc(d, signed('bob', { description: 'Fixed' })));
+    // Later changes keep it as it was.
+    await assertFails(
+      updateDoc(d, signed('bob', { description: 'Again', editedFrom: { ...original, description: 'Fixed' } })),
+    );
+    await assertSucceeds(updateDoc(d, signed('bob', { description: 'Again' })));
+    await assertFails(
+      updateDoc(doc(entries(db('carol')), 'carol-1'), { editedFrom: null, updatedAt: serverTimestamp() }),
+    );
+  });
+
+  it('lets an admin delete and restore a member’s entry, signed', async () => {
+    const d = doc(entries(db('bob')), 'carol-1');
+    await assertFails(updateDoc(d, signed('bob', { deleted: true })));
+    await assertFails(updateDoc(d, signed('bob', { deleted: true, deletedBy: 'alice' })));
+    await assertSucceeds(updateDoc(d, signed('bob', { deleted: true, deletedBy: 'bob' })));
+    // The owner can neither restore it nor clear the mark.
+    const own = doc(entries(db('carol')), 'carol-1');
+    await assertFails(updateDoc(own, { deleted: false, updatedAt: serverTimestamp() }));
+    await assertFails(
+      updateDoc(own, { deleted: false, deletedBy: null, updatedAt: serverTimestamp() }),
+    );
+    // A deleted entry cannot be approved.
+    await assertFails(updateDoc(d, approve('bob')));
+    await assertSucceeds(updateDoc(d, signed('bob', { deleted: false, deletedBy: null })));
+    await assertSucceeds(updateDoc(own, { description: 'Back', updatedAt: serverTimestamp() }));
+  });
+});

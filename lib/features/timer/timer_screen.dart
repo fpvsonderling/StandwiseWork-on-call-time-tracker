@@ -13,6 +13,7 @@ import '../../domain/models.dart';
 import '../../domain/projects.dart';
 import '../../domain/reports.dart';
 import '../../domain/timer.dart';
+import '../common/approval_widgets.dart';
 import '../common/format.dart';
 import '../common/widgets.dart';
 import '../placeholder/placeholder_screens.dart';
@@ -336,10 +337,18 @@ class _TrackerCardState extends ConsumerState<TrackerCard> {
       onChanged: enabled ? _setType : null,
     );
 
+    final rateStatus = rates[projectId ?? noProjectKey]?.status;
     final ratePreview = Text(
       rate == 0
           ? l10n.rateNotSet
-          : l10n.yourRate(money(context, rate, ctx.currency)),
+          : rateStatus == null || rateStatus == RateStatus.approved
+          ? l10n.yourRate(money(context, rate, ctx.currency))
+          : l10n.yourRateStatus(
+              money(context, rate, ctx.currency),
+              rateStatus == RateStatus.pending
+                  ? l10n.ratePending.toLowerCase()
+                  : l10n.rateRejected.toLowerCase(),
+            ),
       style: Theme.of(context).textTheme.bodySmall,
     );
 
@@ -658,7 +667,8 @@ class _DayHeader extends StatelessWidget {
   }
 }
 
-/// One entry: tap to edit, Continue, delete with Undo.
+/// One entry: tap to edit, Continue, delete with Undo. An approved entry is
+/// locked; one an admin deleted is crossed out and not counted.
 class EntryTile extends ConsumerWidget {
   const EntryTile({super.key, required this.entry});
 
@@ -675,6 +685,26 @@ class EntryTile extends ConsumerWidget {
     final theme = Theme.of(context);
     final status = context.statusColors;
     final writable = ctx.writable;
+    final removed = entry.deletedByAdmin;
+    final editable = writable && entry.ownerEditable;
+    final edit = entry.edit;
+    final before = entry.editedFrom;
+    final beforeText = before == null || removed
+        ? null
+        : entryBeforeText(
+            context,
+            before: before,
+            now: entry,
+            projects: ref.watch(projectsByIdProvider),
+            currency: ctx.currency,
+            use24h: ctx.settings.use24h,
+          );
+    final strike = removed
+        ? const TextStyle(decoration: TextDecoration.lineThrough)
+        : null;
+    final note = theme.textTheme.bodySmall?.copyWith(
+      color: removed ? status.stop : theme.colorScheme.primary,
+    );
 
     Future<void> delete() async {
       final messenger = ScaffoldMessenger.of(context);
@@ -696,7 +726,7 @@ class EntryTile extends ConsumerWidget {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        onTap: writable ? () => editEntry(context, ref, entry) : null,
+        onTap: editable ? () => editEntry(context, ref, entry) : null,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
           child: Row(
@@ -713,12 +743,14 @@ class EntryTile extends ConsumerWidget {
                       entry.description.isEmpty
                           ? l10n.noDescription
                           : entry.description,
-                      style: entry.description.isEmpty
-                          ? theme.textTheme.bodyLarge?.copyWith(
-                              fontStyle: FontStyle.italic,
-                              color: theme.colorScheme.outline,
-                            )
-                          : theme.textTheme.bodyLarge,
+                      style:
+                          (entry.description.isEmpty
+                                  ? theme.textTheme.bodyLarge?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: theme.colorScheme.outline,
+                                    )
+                                  : theme.textTheme.bodyLarge)
+                              ?.merge(strike),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
@@ -729,31 +761,47 @@ class EntryTile extends ConsumerWidget {
                       style: theme.textTheme.bodySmall,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (entry.edit case final edit?)
+                    if (edit != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Row(
                           children: [
                             Icon(
-                              Icons.edit_note,
+                              removed ? Icons.delete_outline : Icons.edit_note,
                               size: 16,
-                              color: theme.colorScheme.primary,
+                              color: note?.color,
                             ),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
                                 [
-                                  l10n.editedBy(edit.byName),
+                                  removed
+                                      ? l10n.entryDeletedBy(edit.byName)
+                                      : l10n.editedBy(edit.byName),
                                   if (edit.comment.isNotEmpty) edit.comment,
                                 ].join(': '),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                ),
+                                style: note,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
+                      ),
+                    if (beforeText != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 20),
+                        child: Text(
+                          beforeText,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    if (entry.approval case final approval? when !removed)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: ApprovedPill(approval: approval),
                       ),
                   ],
                 ),
@@ -764,9 +812,9 @@ class EntryTile extends ConsumerWidget {
                 children: [
                   Text(
                     formatHoursMinutes(entry.durationMin),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontFeatures: tabularFigures,
-                    ),
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontFeatures: tabularFigures)
+                        .merge(strike),
                   ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -794,7 +842,7 @@ class EntryTile extends ConsumerWidget {
                   ),
                 ],
               ),
-              if (writable) ...[
+              if (writable && !removed) ...[
                 IconButton(
                   tooltip: l10n.continueEntry,
                   icon: const Icon(Icons.play_arrow_outlined),
@@ -803,12 +851,16 @@ class EntryTile extends ConsumerWidget {
                     () => ref.read(timerActionsProvider).continueEntry(entry),
                   ),
                 ),
-                IconButton(
-                  tooltip: l10n.delete,
-                  icon: Icon(Icons.delete_outline, color: status.stop),
-                  onPressed: delete,
-                ),
+                if (editable)
+                  IconButton(
+                    tooltip: l10n.delete,
+                    icon: Icon(Icons.delete_outline, color: status.stop),
+                    onPressed: delete,
+                  )
+                else
+                  const SizedBox(width: 48),
               ],
+              if (removed) const SizedBox(width: 96),
             ],
           ),
         ),

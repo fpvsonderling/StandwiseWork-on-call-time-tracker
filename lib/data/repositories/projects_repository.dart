@@ -21,5 +21,22 @@ abstract interface class ProjectsRepository {
   /// The member's own rates keyed by project ID (or [noProjectKey]).
   Stream<Map<String, ProjectRate>> watchRates(String orgId, String uid);
 
-  Future<void> saveRate(String orgId, String uid, ProjectRate rate);
+  /// The member saves their own [rate]: it waits for approval, unless
+  /// [selfApproval] is set (an admin's own rate).
+  Future<void> saveRate(
+    String orgId,
+    String uid,
+    ProjectRate rate, {
+    RateReview? selfApproval,
+  });
+
+  /// An admin approves or rejects member [uid]'s [rate] as they saw it; the
+  /// write fails if the member changed it in the meantime (rules).
+  Future<void> reviewRate(
+    String orgId,
+    String uid,
+    ProjectRate rate,
+    RateReview review, {
+    required bool approved,
+  });
 }

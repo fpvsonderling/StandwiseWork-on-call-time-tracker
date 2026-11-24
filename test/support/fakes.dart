@@ -428,9 +428,13 @@ class FakeProjectsRepository implements ProjectsRepository {
   FakeProjectsRepository({
     List<Project>? projects,
     Map<String, ProjectRate>? rates,
-    this.memberRates = const {},
+    Map<String, Map<String, ProjectRate>> memberRates = const {},
   }) : projects = [...?projects],
-       rates = {...?rates};
+       rates = {...?rates},
+       memberRates = {
+         for (final MapEntry(:key, :value) in memberRates.entries)
+           key: {...value},
+       };
 
   final List<Project> projects;
 
@@ -466,8 +470,42 @@ class FakeProjectsRepository implements ProjectsRepository {
       watchValue(() => {...memberRates[uid] ?? rates}, _changes.stream);
 
   @override
-  Future<void> saveRate(String orgId, String uid, ProjectRate rate) async {
-    rates[rate.projectId] = rate;
+  Future<void> saveRate(
+    String orgId,
+    String uid,
+    ProjectRate rate, {
+    RateReview? selfApproval,
+  }) async {
+    rates[rate.projectId] = ProjectRate(
+      projectId: rate.projectId,
+      workRateMinor: rate.workRateMinor,
+      standbyRateMinor: rate.standbyRateMinor,
+      status: selfApproval == null ? RateStatus.pending : RateStatus.approved,
+      review: selfApproval,
+    );
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> reviewRate(
+    String orgId,
+    String uid,
+    ProjectRate rate,
+    RateReview review, {
+    required bool approved,
+  }) async {
+    final reviewed = ProjectRate(
+      projectId: rate.projectId,
+      workRateMinor: rate.workRateMinor,
+      standbyRateMinor: rate.standbyRateMinor,
+      status: approved ? RateStatus.approved : RateStatus.rejected,
+      review: review,
+    );
+    if (memberRates[uid] case final m?) {
+      m[rate.projectId] = reviewed;
+    } else {
+      rates[rate.projectId] = reviewed;
+    }
     _changes.add(null);
   }
 }
@@ -547,31 +585,94 @@ class FakeEntriesRepository implements EntriesRepository {
     _changed();
   }
 
+  /// [e] with the admin-only fields replaced.
+  static TimeEntry _with(
+    TimeEntry e, {
+    EntryEdit? edit,
+    EntrySnapshot? editedFrom,
+    bool? deleted,
+    String? deletedBy,
+    bool keepDeletedBy = true,
+    EntryApproval? approval,
+    bool keepApproval = true,
+  }) => TimeEntry(
+    id: e.id,
+    uid: e.uid,
+    projectId: e.projectId,
+    type: e.type,
+    rateMinor: e.rateMinor,
+    start: e.start,
+    end: e.end,
+    description: e.description,
+    deleted: deleted ?? e.deleted,
+    edit: edit ?? e.edit,
+    editedFrom: editedFrom ?? e.editedFrom,
+    deletedBy: keepDeletedBy ? e.deletedBy : deletedBy,
+    approval: keepApproval ? e.approval : approval,
+  );
+
+  static EntryEdit _stamped(EntryEdit edit) => EntryEdit(
+    byUid: edit.byUid,
+    byName: edit.byName,
+    at: DateTime.now(),
+    comment: edit.comment,
+  );
+
   @override
   Future<void> editEntryAsAdmin(
     String orgId,
     TimeEntry entry,
-    EntryEdit edit,
-  ) async {
+    EntryEdit edit, {
+    required EntrySnapshot original,
+  }) async {
+    _put(_with(entry, edit: _stamped(edit), editedFrom: original));
+    _changed();
+  }
+
+  @override
+  Future<void> setDeletedAsAdmin(
+    String orgId,
+    TimeEntry entry,
+    EntryEdit edit, {
+    required EntrySnapshot original,
+    required bool deleted,
+  }) async {
+    final current = entries.firstWhere((x) => x.id == entry.id);
     _put(
-      TimeEntry(
-        id: entry.id,
-        uid: entry.uid,
-        projectId: entry.projectId,
-        type: entry.type,
-        rateMinor: entry.rateMinor,
-        start: entry.start,
-        end: entry.end,
-        description: entry.description,
-        deleted: entry.deleted,
-        edit: EntryEdit(
-          byUid: edit.byUid,
-          byName: edit.byName,
-          at: DateTime.now(),
-          comment: edit.comment,
-        ),
+      _with(
+        current,
+        edit: _stamped(edit),
+        editedFrom: original,
+        deleted: deleted,
+        keepDeletedBy: false,
+        deletedBy: deleted ? edit.byUid : null,
       ),
     );
+    _changed();
+  }
+
+  @override
+  Future<void> setApproval(
+    String orgId,
+    List<String> entryIds,
+    EntryApproval? approval,
+  ) async {
+    for (final id in entryIds) {
+      final e = entries.firstWhere((x) => x.id == id);
+      _put(
+        _with(
+          e,
+          keepApproval: false,
+          approval: approval == null
+              ? null
+              : EntryApproval(
+                  byUid: approval.byUid,
+                  byName: approval.byName,
+                  at: DateTime.now(),
+                ),
+        ),
+      );
+    }
     _changed();
   }
 
@@ -592,12 +693,13 @@ class FakeEntriesRepository implements EntriesRepository {
     required String? uid,
     required DateTime from,
     DateTime? to,
+    bool includeAdminDeleted = false,
   }) => watchValue(
     () =>
         entries
             .where(
               (e) =>
-                  !e.deleted &&
+                  (!e.deleted || (includeAdminDeleted && e.deletedByAdmin)) &&
                   (uid == null || e.uid == uid) &&
                   !e.start.isBefore(from) &&
                   (to == null || e.start.isBefore(to)),

@@ -10,12 +10,14 @@ import '../../domain/durations.dart';
 import '../../domain/models.dart';
 import '../../domain/projects.dart';
 import '../../domain/reports.dart';
+import '../common/approval_widgets.dart';
 import '../common/csv_export.dart';
 import '../common/format.dart';
 import '../common/widgets.dart';
 import '../placeholder/placeholder_screens.dart';
 import '../reports/report_widgets.dart';
 import '../timer/entry_editor.dart';
+import '../timer/timer_actions.dart';
 
 /// One person's entries starting in a range (admins reading the team).
 final personEntriesProvider =
@@ -223,6 +225,20 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
         else ...[
           ReportTiles(totals: totalsOfCells(cells), currency: ctx.currency),
           const SizedBox(height: 16),
+          if (ratesToReview(rates, projects).isNotEmpty) ...[
+            SectionHeader(
+              l10n.teamRatesToReview(ratesToReview(rates, projects).length),
+            ),
+            Card(
+              child: _RatesToReview(
+                items: ratesToReview(rates, projects),
+                nameOf: nameOf,
+                projectName: projectNameOf,
+                currency: ctx.currency,
+                writable: ctx.writable,
+              ),
+            ),
+          ],
           SectionHeader(l10n.teamPeople),
           Card(
             child: _PeopleTable(
@@ -274,6 +290,14 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
             ),
           ],
           const SizedBox(height: 8),
+          if (hasUnapprovedRates(rates, perPerson))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                l10n.teamUnapprovedNote,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
           Text(
             l10n.teamSummariesNote,
             style: Theme.of(context).textTheme.bodySmall,
@@ -361,6 +385,22 @@ class _PeopleTable extends StatelessWidget {
 
     String rateText(int? minor) =>
         minor == null || minor == 0 ? '—' : money(context, minor, currency);
+    final warn = context.statusColors.standby;
+    Widget marked(String text, TextStyle style, bool approved) => approved
+        ? Text(text, style: style)
+        : Tooltip(
+            message: l10n.rateNotApproved,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 16, color: warn),
+                const SizedBox(width: 4),
+                Text(text, style: style),
+              ],
+            ),
+          );
+    bool approvedOf(TeamRow r) =>
+        !r.hasHours || rateApproved(rates[r.uid] ?? const {}, r.projectId);
     List<DataCell> figures(Totals t, TextStyle style) => [
       DataCell(Text(formatHoursMinutes(t.workMin), style: style)),
       DataCell(Text(formatHoursMinutes(t.standbyMin), style: style)),
@@ -392,14 +432,25 @@ class _PeopleTable extends StatelessWidget {
                 DataCell(Text(nameOf(r.uid))),
                 DataCell(Text(r.hasHours ? projectName(r.projectId) : '—')),
                 ...figures(r.totals, num),
-                DataCell(Text(rateText(rateOf(r)?.workRateMinor), style: num)),
                 DataCell(
-                  Text(rateText(rateOf(r)?.standbyRateMinor), style: num),
+                  marked(
+                    rateText(rateOf(r)?.workRateMinor),
+                    num,
+                    approvedOf(r),
+                  ),
                 ),
                 DataCell(
-                  Text(
+                  marked(
+                    rateText(rateOf(r)?.standbyRateMinor),
+                    num,
+                    approvedOf(r),
+                  ),
+                ),
+                DataCell(
+                  marked(
                     money(context, r.totals.amountMinor, currency),
-                    style: num,
+                    num,
+                    approvedOf(r),
                   ),
                 ),
               ],
@@ -460,7 +511,27 @@ class _PersonEntries extends ConsumerWidget {
         child: Text(l10n.reportEmpty),
       );
     }
-    return SingleChildScrollView(
+    final actions = ref.read(timerActionsProvider);
+    final open = entries.where((e) => !e.isApproved).toList();
+    Future<void> guard(Future<void> Function() action) async {
+      try {
+        await action();
+      } catch (e) {
+        if (context.mounted) showError(context, l10n.error(e));
+      }
+    }
+
+    Future<void> approveAll() async {
+      if (!await _confirmApprove(context, open.length, name)) return;
+      await guard(() => actions.setApproved(open, approved: true));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l10n.entriesApproved)));
+      }
+    }
+
+    final table = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
         columnSpacing: 20,
@@ -473,6 +544,7 @@ class _PersonEntries extends ConsumerWidget {
           DataColumn(label: Text(l10n.duration), numeric: true),
           DataColumn(label: Text(l10n.rate), numeric: true),
           DataColumn(label: Text(l10n.amount), numeric: true),
+          DataColumn(label: Text(l10n.approvalStatus)),
           if (ctx.writable) DataColumn(label: Text(l10n.edit)),
         ],
         rows: [
@@ -531,13 +603,46 @@ class _PersonEntries extends ConsumerWidget {
                 DataCell(
                   Text(money(context, e.amountMinor, ctx.currency), style: num),
                 ),
+                DataCell(
+                  e.approval == null
+                      ? StatusPill(
+                          icon: Icons.hourglass_top,
+                          label: l10n.ratePending,
+                          color: context.statusColors.standby,
+                        )
+                      : ApprovedPill(approval: e.approval!),
+                ),
                 if (ctx.writable)
                   DataCell(
-                    IconButton(
-                      tooltip: l10n.entryEdit,
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () =>
-                          editEntry(context, ref, e, ownerName: name),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: l10n.entryEdit,
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () =>
+                              editEntry(context, ref, e, ownerName: name),
+                        ),
+                        if (e.isApproved)
+                          IconButton(
+                            tooltip: l10n.entryReopen,
+                            icon: const Icon(Icons.lock_open_outlined),
+                            onPressed: () => guard(
+                              () => actions.setApproved([e], approved: false),
+                            ),
+                          )
+                        else
+                          IconButton(
+                            tooltip: l10n.entryApprove,
+                            icon: Icon(
+                              Icons.check_circle_outline,
+                              color: context.statusColors.work,
+                            ),
+                            onPressed: () => guard(
+                              () => actions.setApproved([e], approved: true),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
               ],
@@ -545,5 +650,202 @@ class _PersonEntries extends ConsumerWidget {
         ],
       ),
     );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                l10n.approvalProgress(
+                  entries.length - open.length,
+                  entries.length,
+                ),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (ctx.writable && open.isNotEmpty)
+                FilledButton.icon(
+                  onPressed: approveAll,
+                  icon: const Icon(Icons.lock_outline),
+                  label: Text(l10n.approveAll(open.length)),
+                ),
+            ],
+          ),
+        ),
+        table,
+      ],
+    );
   }
+}
+
+/// A member's rate waiting for an admin.
+typedef RateToReview = ({String uid, ProjectRate rate});
+
+/// Pending, non-zero rates of [rates] (by member) for projects that still
+/// exist. Rejected ones wait for the member to set a new rate.
+List<RateToReview> ratesToReview(
+  Map<String, Map<String, ProjectRate>> rates,
+  Map<String, Project> projects,
+) => [
+  for (final MapEntry(key: uid, value: byProject) in rates.entries)
+    for (final r in byProject.values)
+      if (r.status == RateStatus.pending &&
+          !r.isEmpty &&
+          (r.projectId == noProjectKey ||
+              (projects[r.projectId]?.deleted == false)))
+        (uid: uid, rate: r),
+];
+
+/// Some hours in [totals] use a rate that is not approved.
+bool hasUnapprovedRates(
+  Map<String, Map<String, ProjectRate>> rates,
+  PersonProjectTotals totals,
+) => totals.entries.any(
+  (p) => p.value.keys.any(
+    (projectId) => !rateApproved(rates[p.key] ?? const {}, projectId),
+  ),
+);
+
+/// Pending rates with Approve and Reject (with an optional reason).
+class _RatesToReview extends ConsumerWidget {
+  const _RatesToReview({
+    required this.items,
+    required this.nameOf,
+    required this.projectName,
+    required this.currency,
+    required this.writable,
+  });
+
+  final List<RateToReview> items;
+  final String Function(String) nameOf;
+  final String Function(String?) projectName;
+  final String currency;
+  final bool writable;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+
+    Future<void> review(RateToReview item, {required bool approved}) async {
+      var comment = '';
+      if (!approved) {
+        final reason = await _askReason(context, nameOf(item.uid));
+        if (reason == null) return;
+        comment = reason;
+      }
+      try {
+        await ref
+            .read(timerActionsProvider)
+            .reviewRate(
+              item.uid,
+              item.rate,
+              approved: approved,
+              comment: comment,
+            );
+      } catch (e) {
+        if (context.mounted) showError(context, l10n.error(e));
+      }
+    }
+
+    String rate(int minor) =>
+        minor == 0 ? '—' : '${money(context, minor, currency)}/h';
+    return Column(
+      children: [
+        for (final item in items)
+          ListTile(
+            leading: RateStatusPill(rate: item.rate),
+            title: Text(
+              '${nameOf(item.uid)} · ${projectName(item.rate.projectId == noProjectKey ? null : item.rate.projectId)}',
+            ),
+            subtitle: Text(
+              '${l10n.typeWork} ${rate(item.rate.workRateMinor)} · '
+              '${l10n.typeStandby} ${rate(item.rate.standbyRateMinor)}',
+              style: const TextStyle(fontFeatures: tabularFigures),
+            ),
+            trailing: writable
+                ? Wrap(
+                    spacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => review(item, approved: false),
+                        child: Text(l10n.rateReject),
+                      ),
+                      FilledButton(
+                        onPressed: () => review(item, approved: true),
+                        child: Text(l10n.rateApprove),
+                      ),
+                    ],
+                  )
+                : null,
+          ),
+      ],
+    );
+  }
+}
+
+/// The reason for rejecting [name]'s rate; `null` when cancelled.
+Future<String?> _askReason(BuildContext context, String name) {
+  final l10n = context.l10n;
+  final controller = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n.rateRejectTitle(name)),
+      content: SizedBox(
+        width: 400,
+        child: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 500,
+          decoration: InputDecoration(
+            labelText: l10n.rateRejectReason,
+            helperText: l10n.rateRejectHelp(name),
+            helperMaxLines: 3,
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, controller.text.trim()),
+          child: Text(l10n.rateReject),
+        ),
+      ],
+    ),
+  ).whenComplete(controller.dispose);
+}
+
+/// Asks before approving [count] entries of [name].
+Future<bool> _confirmApprove(
+  BuildContext context,
+  int count,
+  String name,
+) async {
+  final l10n = context.l10n;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n.approveAllTitle(count, name)),
+      content: Text(l10n.approveAllBody(name)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton.icon(
+          icon: const Icon(Icons.lock_outline),
+          onPressed: () => Navigator.pop(context, true),
+          label: Text(l10n.rateApprove),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
 }

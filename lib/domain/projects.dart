@@ -69,19 +69,61 @@ class Project {
 /// Validation of a project name or client (rules: 1–100 / 0–100 chars).
 const int maxProjectNameLength = 100;
 
+/// Whether an admin has accepted a member's rate.
+enum RateStatus {
+  pending('pending'),
+  approved('approved'),
+  rejected('rejected');
+
+  const RateStatus(this.wire);
+  final String wire;
+
+  /// Rates saved before approvals existed have no status: pending.
+  static RateStatus fromWire(String? v) =>
+      values.firstWhere((s) => s.wire == v, orElse: () => pending);
+}
+
+/// The admin who approved or rejected a rate, when, and why.
+class RateReview {
+  const RateReview({
+    required this.byUid,
+    required this.byName,
+    this.at,
+    this.comment = '',
+  });
+
+  final String byUid;
+  final String byName;
+
+  /// Server time; `null` until the write has synced.
+  final DateTime? at;
+  final String comment;
+}
+
 /// One member's own Work and Standby rate for one project, per hour in
-/// minor units (`orgs/{orgId}/members/{uid}/rates/{projectId}`).
+/// minor units (`orgs/{orgId}/members/{uid}/rates/{projectId}`). Every
+/// change by the member waits for an admin's approval; an admin's own rates
+/// are approved when saved.
 class ProjectRate {
   const ProjectRate({
     required this.projectId,
     this.workRateMinor = 0,
     this.standbyRateMinor = 0,
+    this.status = RateStatus.pending,
+    this.review,
   });
 
   /// A project ID, or [noProjectKey].
   final String projectId;
   final int workRateMinor;
   final int standbyRateMinor;
+  final RateStatus status;
+  final RateReview? review;
+
+  bool get isApproved => status == RateStatus.approved;
+
+  /// Both rates are zero: nothing to approve.
+  bool get isEmpty => workRateMinor == 0 && standbyRateMinor == 0;
 
   int forType(EntryType type) =>
       type == EntryType.work ? workRateMinor : standbyRateMinor;
@@ -94,6 +136,13 @@ int currentRate(
   String? projectId,
   EntryType type,
 ) => rates[projectId ?? noProjectKey]?.forType(type) ?? 0;
+
+/// Whether the rate an entry of [projectId] uses is approved; `true` when
+/// no rate is set (nothing to approve).
+bool rateApproved(Map<String, ProjectRate> rates, String? projectId) {
+  final r = rates[projectId ?? noProjectKey];
+  return r == null || r.isEmpty || r.isApproved;
+}
 
 /// Projects sorted for pickers and lists: by name, case-insensitive.
 List<Project> sortedProjects(Iterable<Project> projects) =>

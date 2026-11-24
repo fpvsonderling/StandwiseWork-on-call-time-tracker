@@ -160,20 +160,121 @@ class TimerActions {
   /// An admin saves a change to someone else's [entry]. The owner sees who
   /// made it and the optional [comment] (D-051). The name must match the
   /// admin's membership exactly (firestore.rules).
-  Future<void> editAsAdmin(TimeEntry entry, {required String comment}) {
-    final ctx = _ctx;
-    if (!ctx.isAdmin) throw const AppException(AppErrorCode.notAdmin);
-    final m = ctx.membership;
+  ///
+  /// [before] is the entry as it was; its owner's version is kept the first
+  /// time so the owner sees what changed.
+  Future<void> editAsAdmin(
+    TimeEntry entry, {
+    required TimeEntry before,
+    required String comment,
+  }) {
+    final ctx = _adminCtx;
     return _ref
         .read(entriesRepositoryProvider)
         .editEntryAsAdmin(
           ctx.orgId,
           entry,
-          EntryEdit(
+          _signature(ctx, comment),
+          original: before.editedFrom ?? before.snapshot,
+        );
+  }
+
+  /// An admin deletes ([deleted] true) or restores someone else's [entry];
+  /// the owner sees "Deleted by" and the [comment].
+  Future<void> setDeletedAsAdmin(
+    TimeEntry entry, {
+    required bool deleted,
+    String comment = '',
+  }) {
+    final ctx = _adminCtx;
+    return _ref
+        .read(entriesRepositoryProvider)
+        .setDeletedAsAdmin(
+          ctx.orgId,
+          entry,
+          _signature(ctx, comment),
+          original: entry.editedFrom ?? entry.snapshot,
+          deleted: deleted,
+        );
+  }
+
+  /// An admin approves [entries] (locking them for their owners) or, with
+  /// [approved] false, reopens them. Entries already in that state are
+  /// skipped.
+  Future<void> setApproved(
+    Iterable<TimeEntry> entries, {
+    required bool approved,
+  }) {
+    final ctx = _adminCtx;
+    final ids = [
+      for (final e in entries)
+        if (!e.deleted && e.isApproved != approved) e.id,
+    ];
+    if (ids.isEmpty) return Future.value();
+    return _ref
+        .read(entriesRepositoryProvider)
+        .setApproval(
+          ctx.orgId,
+          ids,
+          approved
+              ? EntryApproval(byUid: ctx.uid, byName: _adminName(ctx))
+              : null,
+        );
+  }
+
+  WorkContext get _adminCtx {
+    final ctx = _ctx;
+    if (!ctx.isAdmin) throw const AppException(AppErrorCode.notAdmin);
+    return ctx;
+  }
+
+  /// Must match the admin's membership name exactly (firestore.rules).
+  static String _adminName(WorkContext ctx) =>
+      '${ctx.membership.firstName} ${ctx.membership.lastName}';
+
+  static EntryEdit _signature(WorkContext ctx, String comment) => EntryEdit(
+    byUid: ctx.uid,
+    byName: _adminName(ctx),
+    comment: comment.trim(),
+  );
+
+  /// The signed-in member saves their own rate. It waits for an admin's
+  /// approval; an admin's own rate is approved at once.
+  Future<void> saveMyRate(ProjectRate rate) {
+    final ctx = _ctx;
+    return _ref
+        .read(projectsRepositoryProvider)
+        .saveRate(
+          ctx.orgId,
+          ctx.uid,
+          rate,
+          selfApproval: ctx.isAdmin
+              ? RateReview(byUid: ctx.uid, byName: _adminName(ctx))
+              : null,
+        );
+  }
+
+  /// An admin approves or rejects member [uid]'s [rate] (with an optional
+  /// [comment] the member sees).
+  Future<void> reviewRate(
+    String uid,
+    ProjectRate rate, {
+    required bool approved,
+    String comment = '',
+  }) {
+    final ctx = _adminCtx;
+    return _ref
+        .read(projectsRepositoryProvider)
+        .reviewRate(
+          ctx.orgId,
+          uid,
+          rate,
+          RateReview(
             byUid: ctx.uid,
-            byName: '${m.firstName} ${m.lastName}',
+            byName: _adminName(ctx),
             comment: comment.trim(),
           ),
+          approved: approved,
         );
   }
 
@@ -223,9 +324,7 @@ class TimerActions {
         ),
         isNew: true,
       );
-      await projectsRepo.saveRate(
-        ctx.orgId,
-        ctx.uid,
+      await saveMyRate(
         ProjectRate(
           projectId: id,
           workRateMinor: work,
@@ -275,7 +374,7 @@ class TimerActions {
     final ids = samples.map((p) => p.id).toSet();
     for (final e
         in _ref.read(myRecentEntriesProvider).value ?? const <TimeEntry>[]) {
-      if (ids.contains(e.projectId)) {
+      if (ids.contains(e.projectId) && !e.deleted && e.ownerEditable) {
         await setDeleted(e.id, deleted: true);
       }
     }

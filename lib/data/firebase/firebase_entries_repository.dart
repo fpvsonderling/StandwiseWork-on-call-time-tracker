@@ -60,6 +60,15 @@ class FirebaseEntriesRepository implements EntriesRepository {
       end: (m['end'] as Timestamp?)?.toDate() ?? DateTime(0),
       description: m['description'] as String? ?? '',
       deleted: m['deleted'] as bool? ?? false,
+      editedFrom: _snapshotFrom(m['editedFrom']),
+      deletedBy: m['deletedBy'] as String?,
+      approval: m['approvedBy'] is String
+          ? EntryApproval(
+              byUid: m['approvedBy'] as String,
+              byName: m['approvedByName'] as String? ?? '',
+              at: (m['approvedAt'] as Timestamp?)?.toDate(),
+            )
+          : null,
       edit: m['editedBy'] is String
           ? EntryEdit(
               byUid: m['editedBy'] as String,
@@ -70,6 +79,37 @@ class FirebaseEntriesRepository implements EntriesRepository {
           : null,
     );
   }
+
+  static Map<String, Object?> _snapshotData(EntrySnapshot s) => {
+    'projectId': s.projectId,
+    'type': s.type.wire,
+    'rateMinor': s.rateMinor,
+    'start': Timestamp.fromDate(s.start),
+    'end': Timestamp.fromDate(s.end),
+    'description': s.description,
+  };
+
+  static EntrySnapshot? _snapshotFrom(Object? raw) {
+    if (raw is! Map) return null;
+    final start = raw['start'];
+    final end = raw['end'];
+    if (start is! Timestamp || end is! Timestamp) return null;
+    return EntrySnapshot(
+      projectId: raw['projectId'] as String?,
+      type: EntryType.fromWire(raw['type'] as String? ?? ''),
+      rateMinor: (raw['rateMinor'] as num?)?.toInt() ?? 0,
+      start: start.toDate(),
+      end: end.toDate(),
+      description: raw['description'] as String? ?? '',
+    );
+  }
+
+  static Map<String, Object?> _editData(EntryEdit edit) => {
+    'editedBy': edit.byUid,
+    'editedByName': edit.byName,
+    'editedAt': FieldValue.serverTimestamp(),
+    'editComment': edit.comment.isEmpty ? null : edit.comment,
+  };
 
   @override
   Stream<RunningTimer?> watchTimer(String orgId, String uid) =>
@@ -150,16 +190,53 @@ class FirebaseEntriesRepository implements EntriesRepository {
   Future<void> editEntryAsAdmin(
     String orgId,
     TimeEntry entry,
-    EntryEdit edit,
-  ) async => _track(
+    EntryEdit edit, {
+    required EntrySnapshot original,
+  }) async => _track(
     _entries(orgId).doc(entry.id).update({
       ..._entryData(entry),
-      'editedBy': edit.byUid,
-      'editedByName': edit.byName,
-      'editedAt': FieldValue.serverTimestamp(),
-      'editComment': edit.comment.isEmpty ? null : edit.comment,
+      ..._editData(edit),
+      'editedFrom': _snapshotData(original),
     }),
   );
+
+  @override
+  Future<void> setDeletedAsAdmin(
+    String orgId,
+    TimeEntry entry,
+    EntryEdit edit, {
+    required EntrySnapshot original,
+    required bool deleted,
+  }) async => _track(
+    _entries(orgId).doc(entry.id).update({
+      'deleted': deleted,
+      'deletedBy': deleted ? edit.byUid : null,
+      'updatedAt': FieldValue.serverTimestamp(),
+      ..._editData(edit),
+      'editedFrom': _snapshotData(original),
+    }),
+  );
+
+  @override
+  Future<void> setApproval(
+    String orgId,
+    List<String> entryIds,
+    EntryApproval? approval,
+  ) async {
+    // A batch holds at most 500 writes.
+    for (var i = 0; i < entryIds.length; i += 400) {
+      final batch = _db.batch();
+      for (final id in entryIds.skip(i).take(400)) {
+        batch.update(_entries(orgId).doc(id), {
+          'approvedBy': approval?.byUid,
+          'approvedByName': approval?.byName,
+          'approvedAt': approval == null ? null : FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      _track(batch.commit());
+    }
+  }
 
   @override
   Future<void> setDeleted(
@@ -179,6 +256,7 @@ class FirebaseEntriesRepository implements EntriesRepository {
     required String? uid,
     required DateTime from,
     DateTime? to,
+    bool includeAdminDeleted = false,
   }) {
     Query<Map<String, dynamic>> q = _entries(orgId);
     if (uid != null) q = q.where('uid', isEqualTo: uid);
@@ -187,7 +265,14 @@ class FirebaseEntriesRepository implements EntriesRepository {
     return q
         .orderBy('start', descending: true)
         .snapshots()
-        .map((s) => s.docs.map(_entry).where((e) => !e.deleted).toList());
+        .map(
+          (s) => s.docs
+              .map(_entry)
+              .where(
+                (e) => !e.deleted || (includeAdminDeleted && e.deletedByAdmin),
+              )
+              .toList(),
+        );
   }
 
   @override

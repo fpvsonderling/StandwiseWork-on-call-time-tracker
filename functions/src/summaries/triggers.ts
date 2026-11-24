@@ -23,9 +23,13 @@ export function adminEditAudit(entryId: string, before: EntryData, after: EntryD
   const owner = after?.uid;
   if (typeof by !== 'string' || typeof owner !== 'string') return null;
   const comment = after?.editComment;
+  // An admin's delete or restore is signed like an edit (deletedBy is set
+  // or cleared in the same write).
+  const deleted = after?.deleted === true && typeof after?.deletedBy === 'string';
+  const restored = before?.deleted === true && typeof before?.deletedBy === 'string' && after?.deleted === false;
   return {
     actorUid: by,
-    action: 'entry.edit',
+    action: deleted ? 'entry.delete' : restored ? 'entry.restore' : 'entry.edit',
     entity: 'member',
     entityId: owner,
     details: { entryId, ...(typeof comment === 'string' ? { comment } : {}) },

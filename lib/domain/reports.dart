@@ -132,7 +132,8 @@ List<DayGroup> groupByDay(Iterable<TimeEntry> entries) {
       () => DayGroup(dateOnly(e.start)),
     );
     g.entries.add(e);
-    g.totals.add(e);
+    // Entries an admin deleted are listed for their owner but not counted.
+    if (!e.deleted) g.totals.add(e);
   }
   return groups.values.toList();
 }
