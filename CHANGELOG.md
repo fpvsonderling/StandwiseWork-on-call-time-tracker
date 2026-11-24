@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-24
+
 ### Added
 
 - Rate approval: every rate an employee sets waits for an admin. Projects & rates and the Timer show "Pending approval", "Approved" or "Rejected" (with the admin's reason). Team lists the rates awaiting approval with Approve and Reject, and marks amounts that use a rate not approved yet with ⚠. An admin's own rate is approved when saved.
